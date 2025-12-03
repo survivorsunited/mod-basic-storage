@@ -498,7 +498,8 @@ jobs:
             fi
             
             if [ -n "$ORIGINAL_JAR" ]; then
-              VERSIONED_JAR="build/libs-all/${MOD_NAME}-${ACTUAL_MOD_VERSION}-${MC_VERSION}.jar"
+              # Use tag version for JAR naming, not gradle.properties version
+              VERSIONED_JAR="build/libs-all/${MOD_NAME}-${MOD_VERSION}-${MC_VERSION}.jar"
               cp "$ORIGINAL_JAR" "$VERSIONED_JAR"
               echo "✅ Built: $VERSIONED_JAR"
             else
