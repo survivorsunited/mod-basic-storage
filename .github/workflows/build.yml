@@ -74,12 +74,12 @@ jobs:
           FABRIC_VERSION="${{ steps.version_config.outputs.fabric_version }}"
           LOOM_VERSION="${{ steps.version_config.outputs.loom_version }}"
           
-          sed -i "s/^minecraft_version=.*/minecraft_version=$MC_VERSION/" gradle.properties
-          sed -i "s/^yarn_mappings=.*/yarn_mappings=$YARN_MAPPINGS/" gradle.properties
-          sed -i "s/^loader_version=.*/loader_version=$LOADER_VERSION/" gradle.properties
-          sed -i "s/^fabric_loader_version=.*/fabric_loader_version=$LOADER_VERSION/" gradle.properties
-          sed -i "s/^fabric_version=.*/fabric_version=$FABRIC_VERSION/" gradle.properties
-          sed -i "s/^loom_version=.*/loom_version=$LOOM_VERSION/" gradle.properties
+          sed -i "s/^[[:space:]]*minecraft_version[[:space:]]*=.*/minecraft_version=$MC_VERSION/" gradle.properties
+          sed -i "s/^[[:space:]]*yarn_mappings[[:space:]]*=.*/yarn_mappings=$YARN_MAPPINGS/" gradle.properties
+          sed -i "s/^[[:space:]]*loader_version[[:space:]]*=.*/loader_version=$LOADER_VERSION/" gradle.properties
+          sed -i "s/^[[:space:]]*fabric_loader_version[[:space:]]*=.*/fabric_loader_version=$LOADER_VERSION/" gradle.properties
+          sed -i "s/^[[:space:]]*fabric_version[[:space:]]*=.*/fabric_version=$FABRIC_VERSION/" gradle.properties
+          sed -i "s/^[[:space:]]*loom_version[[:space:]]*=.*/loom_version=$LOOM_VERSION/" gradle.properties
           
           echo "✅ Updated gradle.properties for $MC_VERSION"
         
@@ -460,13 +460,13 @@ jobs:
             # Update Gradle wrapper first
             ./gradlew wrapper --gradle-version $GRADLE_VERSION
             
-            # Update gradle.properties
-            sed -i "s/^minecraft_version=.*/minecraft_version=$MC_VERSION/" gradle.properties
-            sed -i "s/^yarn_mappings=.*/yarn_mappings=$YARN_MAPPINGS/" gradle.properties
-            sed -i "s/^loader_version=.*/loader_version=$LOADER_VERSION/" gradle.properties
-            sed -i "s/^fabric_loader_version=.*/fabric_loader_version=$LOADER_VERSION/" gradle.properties
-            sed -i "s/^fabric_version=.*/fabric_version=$FABRIC_VERSION/" gradle.properties
-            sed -i "s/^loom_version=.*/loom_version=$LOOM_VERSION/" gradle.properties
+            # Update gradle.properties - handle spaces around equals sign
+            sed -i "s/^[[:space:]]*minecraft_version[[:space:]]*=.*/minecraft_version=$MC_VERSION/" gradle.properties
+            sed -i "s/^[[:space:]]*yarn_mappings[[:space:]]*=.*/yarn_mappings=$YARN_MAPPINGS/" gradle.properties
+            sed -i "s/^[[:space:]]*loader_version[[:space:]]*=.*/loader_version=$LOADER_VERSION/" gradle.properties
+            sed -i "s/^[[:space:]]*fabric_loader_version[[:space:]]*=.*/fabric_loader_version=$LOADER_VERSION/" gradle.properties
+            sed -i "s/^[[:space:]]*fabric_version[[:space:]]*=.*/fabric_version=$FABRIC_VERSION/" gradle.properties
+            sed -i "s/^[[:space:]]*loom_version[[:space:]]*=.*/loom_version=$LOOM_VERSION/" gradle.properties
             
             # Preserve existing versioned JARs before cleaning
             mkdir -p build/libs-all
