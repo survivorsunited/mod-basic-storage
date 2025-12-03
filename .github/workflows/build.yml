@@ -407,6 +407,8 @@ jobs:
         id: release_version
         run: |
           VERSION="${{ github.event.ref }}"
+          # Remove 'refs/tags/' prefix if present
+          VERSION="${VERSION#refs/tags/}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Manual release triggered by tag: $VERSION"
       
@@ -432,7 +434,7 @@ jobs:
       - name: Extract properties from gradle.properties
         id: properties
         run: |
-          MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
+          RELEASE_VERSION="${{ steps.release_version.outputs.version }}"
           MOD_NAME=$(grep "^[[:space:]]*archives_base_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*archives_base_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
           MOD_TITLE=$(grep "^[[:space:]]*mod_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Basic Storage")
           MOD_DESC=$(grep "^[[:space:]]*mod_description[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_description[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Vanilla-friendly mass item storage")
@@ -440,7 +442,7 @@ jobs:
           echo "modName=$MOD_NAME" >> $GITHUB_OUTPUT
           echo "modTitle=$MOD_TITLE" >> $GITHUB_OUTPUT
           echo "modDescription=$MOD_DESC" >> $GITHUB_OUTPUT
-          echo "modVersion=$MOD_VERSION" >> $GITHUB_OUTPUT
+          echo "modVersion=$RELEASE_VERSION" >> $GITHUB_OUTPUT
           
       - name: Build all Minecraft versions
         run: |
