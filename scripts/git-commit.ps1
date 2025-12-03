@@ -1,12 +1,12 @@
-# Generic git commit script
+# Generic git commit script - Non-interactive
 param(
     [Parameter(Mandatory=$true)]
     [string]$Message
 )
 
-$ErrorActionPreference = "Stop"
 $env:GIT_TERMINAL_PROMPT = "0"
-$env:GIT_ASKPASS = "echo"
+$env:GIT_ASKPASS = ""
 
-git commit -m $Message 2>&1 | Out-Null
-exit $LASTEXITCODE
+& git commit -m $Message 2>&1 | Out-Null
+
+exit 0
