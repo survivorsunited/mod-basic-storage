@@ -80,15 +80,25 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
     long amountBefore = count;
     if (!resource.equals(item))
       return 0;
-    int extracted = (int) Math.min(count, maxAmount);
+    
+    // If locked, ensure at least 1 item remains
+    boolean isLocked = owner.isLocked();
+    int maxExtractable = isLocked && count > 0 ? (int) Math.max(0, count - 1) : (int) count;
+    int extracted = (int) Math.min(maxExtractable, maxAmount);
+    
     if (extracted > 0) {
       updateSnapshots(transaction);
       count -= extracted;
-      if (count == 0) {
+      // If locked, ensure we never go to 0
+      if (isLocked && count == 0 && amountBefore > 0) {
+        count = 1;
+        extracted = (int) (amountBefore - 1);
+      }
+      if (count == 0 && !isLocked) {
         item = ItemVariant.blank();
         this.markedDirty = true;
       }
-      if (amountBefore == extracted) {
+      if (amountBefore == extracted || (isLocked && count == 1 && amountBefore > 1)) {
         transaction.addOuterCloseCallback((result) -> {
           if (owner.getWorld() != null) {
             notifyNearbyStations(owner.getWorld(), owner.getPos());

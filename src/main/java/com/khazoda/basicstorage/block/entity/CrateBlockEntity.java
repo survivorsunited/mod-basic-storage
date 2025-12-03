@@ -17,6 +17,7 @@ import net.minecraft.util.math.BlockPos;
 
 public class CrateBlockEntity extends BlockEntity {
   public final CrateSlot storage = new CrateSlot(this);
+  private boolean locked = false;
 
   /**
    * Constructor
@@ -45,6 +46,7 @@ public class CrateBlockEntity extends BlockEntity {
     var storageNbt = new NbtCompound();
     storage.writeNbt(storageNbt, registryLookup);
     nbt.put("crateStack", storageNbt);
+    nbt.putBoolean("locked", locked);
   }
 
   @Override
@@ -52,6 +54,9 @@ public class CrateBlockEntity extends BlockEntity {
     super.readNbt(nbt, registryLookup);
     if (nbt.contains("crateStack", 10)) {
       storage.readNbt(nbt.getCompound("crateStack"), registryLookup);
+    }
+    if (nbt.contains("locked", 1)) {
+      locked = nbt.getBoolean("locked");
     }
   }
 
@@ -97,5 +102,15 @@ public class CrateBlockEntity extends BlockEntity {
       t.commit();
     }
     this.refresh();
+  }
+
+  public boolean isLocked() {
+    return locked;
+  }
+
+  public void setLocked(boolean locked) {
+    this.locked = locked;
+    this.refresh();
+    markDirty();
   }
 }

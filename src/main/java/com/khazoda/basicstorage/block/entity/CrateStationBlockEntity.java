@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block.entity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.util.math.BlockPos;
@@ -95,5 +96,80 @@ public class CrateStationBlockEntity extends BlockEntity {
 
   public Map<ItemVariant, List<BlockPos>> getCrateRegistry() {
     return crateRegistry;
+  }
+
+  /**
+   * Consolidate items: Move all items of the same type into the crate with the biggest amount
+   */
+  public void consolidateItems() {
+    if (world == null || world.isClient)
+      return;
+
+    Map<ItemVariant, List<BlockPos>> registry = getCrateRegistry();
+    
+    for (Map.Entry<ItemVariant, List<BlockPos>> entry : registry.entrySet()) {
+      ItemVariant variant = entry.getKey();
+      List<BlockPos> cratePositions = new ArrayList<>(entry.getValue());
+      
+      if (cratePositions.size() <= 1)
+        continue;
+
+      // Find the crate with the most items
+      BlockPos largestCratePos = null;
+      long largestAmount = 0;
+      
+      for (BlockPos pos : cratePositions) {
+        BlockEntity be = world.getBlockEntity(pos);
+        if (be instanceof CrateBlockEntity crate) {
+          if (crate.storage.getResource().equals(variant)) {
+            long amount = crate.storage.getAmount();
+            if (amount > largestAmount) {
+              largestAmount = amount;
+              largestCratePos = pos;
+            }
+          }
+        }
+      }
+
+      if (largestCratePos == null)
+        continue;
+
+      CrateBlockEntity targetCrate = (CrateBlockEntity) world.getBlockEntity(largestCratePos);
+      if (targetCrate == null)
+        continue;
+
+      // Move items from all other crates to the largest one
+      for (BlockPos pos : cratePositions) {
+        if (pos.equals(largestCratePos))
+          continue;
+
+        BlockEntity be = world.getBlockEntity(pos);
+        if (!(be instanceof CrateBlockEntity sourceCrate))
+          continue;
+
+        if (!sourceCrate.storage.getResource().equals(variant))
+          continue;
+
+        long sourceAmount = sourceCrate.storage.getAmount();
+        if (sourceAmount == 0)
+          continue;
+
+        try (var t = Transaction.openOuter()) {
+          long extracted = sourceCrate.storage.extract(variant, sourceAmount, t);
+          if (extracted > 0) {
+            long inserted = targetCrate.storage.insert(variant, extracted, t);
+            if (inserted == extracted) {
+              t.commit();
+              sourceCrate.refresh();
+              targetCrate.refresh();
+            } else {
+              t.abort();
+            }
+          }
+        }
+      }
+    }
+
+    markCacheForUpdate();
   }
 }

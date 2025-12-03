@@ -82,6 +82,22 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
       int connectedCrateCount = cdbe.getConnectedCrates().size();
       int inserted = 0;
 
+      // Check if player is trying to place a crate (shift-clicking with crate item)
+      if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+        // Allow normal block placement instead of inserting into network
+        return ActionResult.PASS;
+      }
+
+      // Consolidation: Sneak + empty hand + right-click on station
+      if (playerStack.isEmpty() && player.isSneaking()) {
+        if (!world.isClient()) {
+          cdbe.consolidateItems();
+          player.sendMessage(Text.translatable("message.basicstorage.station.consolidated").withColor(0xDDFF99), true);
+          world.playSound(null, pos, SoundRegistry.HANDLE_LOADS, SoundCategory.BLOCKS, 1f, 1f);
+        }
+        return ActionResult.SUCCESS;
+      }
+
       if (player.isSneaking()) {
         inserted = depositInventory(player, cdbe);
       } else if (!player.isSneaking()) {

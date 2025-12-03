@@ -120,6 +120,24 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
+      // Locking/Unlocking: Sneak + empty hand + clicking opposite side of crate
+      if (playerStack.isEmpty() && player.isSneaking() && hit.getSide() == facing.getOpposite()) {
+        cbe.setLocked(!cbe.isLocked());
+        if (!world.isClient()) {
+          Text message = cbe.isLocked() 
+              ? Text.translatable("message.basicstorage.crate.locked").withColor(0xFFDD99)
+              : Text.translatable("message.basicstorage.crate.unlocked").withColor(0xFFDD99);
+          player.sendMessage(message, true);
+          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 0.8f, cbe.isLocked() ? 0.9f : 1.1f);
+        }
+        return ActionResult.SUCCESS;
+      }
+
+      // Manual moving: Player holding crate item clicking on another crate
+      if (playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem()) && playerStack.contains(DataComponentRegistry.CRATE_CONTENTS)) {
+        return handleManualCrateTransfer(player, world, pos, cbe, playerStack, hit);
+      }
+
       // if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player,
       // slot); Todo: Enable for debugging
 
@@ -204,6 +222,73 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     }
     player.sendMessage(message, true);
     return ActionResult.CONSUME;
+  }
+
+  /**
+   * Handle manual crate-to-crate transfer
+   */
+  private static ActionResult handleManualCrateTransfer(PlayerEntity player, World world, BlockPos targetPos, 
+      CrateBlockEntity targetCbe, ItemStack heldCrateStack, BlockHitResult hit) {
+    if (world.isClient())
+      return ActionResult.PASS;
+
+    var heldCrateComponent = heldCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+    if (heldCrateComponent == null)
+      return ActionResult.PASS;
+
+    ItemVariant heldItem = heldCrateComponent.item();
+    int heldCount = heldCrateComponent.count();
+    CrateSlot targetSlot = targetCbe.storage;
+
+    // If held crate is empty, transfer from target to held
+    if (heldItem.isBlank() || heldCount == 0) {
+      if (targetSlot.isBlank())
+        return ActionResult.PASS;
+
+      ItemVariant targetItem = targetSlot.getResource();
+      long targetCount = targetSlot.getAmount();
+
+      try (var t = Transaction.openOuter()) {
+        long extracted = targetSlot.extract(targetItem, targetCount, t);
+        if (extracted > 0) {
+          // Update held crate stack
+          var newComponent = new CrateSlotComponent(targetItem, (int) extracted);
+          heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
+          t.commit();
+          world.playSound(null, targetPos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1f);
+          targetCbe.refresh();
+          return ActionResult.SUCCESS;
+        }
+      }
+      return ActionResult.PASS;
+    }
+
+    // If held crate has items, try to dump into target
+    if (targetSlot.isBlank() || targetSlot.getResource().equals(heldItem)) {
+      try (var t = Transaction.openOuter()) {
+        long inserted = targetSlot.insert(heldItem, heldCount, t);
+        if (inserted > 0) {
+          // Update held crate stack
+          int remaining = (int) (heldCount - inserted);
+          if (remaining > 0) {
+            var newComponent = new CrateSlotComponent(heldItem, remaining);
+            heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
+          } else {
+            heldCrateStack.remove(DataComponentRegistry.CRATE_CONTENTS);
+          }
+          t.commit();
+          world.playSound(null, targetPos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1f);
+          targetCbe.refresh();
+          return ActionResult.SUCCESS;
+        }
+      }
+    } else {
+      // Types don't match, play error sound
+      world.playSound(null, targetPos, SoundRegistry.NO_MATCH, SoundCategory.BLOCKS, 1.1f, 1f);
+      return ActionResult.CONSUME;
+    }
+
+    return ActionResult.PASS;
   }
 
   /**
