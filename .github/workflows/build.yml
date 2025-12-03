@@ -94,8 +94,8 @@ jobs:
         run: |
           MC_VERSION="${{ steps.version_config.outputs.mc_version }}"
           # Handle spaces around equals sign in gradle.properties
-          MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
-          MOD_NAME=$(grep "^[[:space:]]*jar_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*jar_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
+          MOD_NAME=$(grep "^[[:space:]]*archives_base_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*archives_base_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
           
           echo "Looking for JAR: ${MOD_NAME}-${MOD_VERSION}.jar"
           echo "Files in build/libs:"
@@ -119,7 +119,7 @@ jobs:
           
           echo "Found JAR: $ORIGINAL_JAR"
           
-          # Create versioned filename: custom-portals-{version}-{mc_version}.jar
+          # Create versioned filename: basicstorage-{version}-{mc_version}.jar
           VERSIONED_JAR="build/libs/${MOD_NAME}-${MOD_VERSION}-${MC_VERSION}.jar"
           cp "$ORIGINAL_JAR" "$VERSIONED_JAR"
           
@@ -180,8 +180,8 @@ jobs:
             sleep 2
             if grep -q "Done" server.log 2>/dev/null; then
               echo "✅ Server started successfully!"
-              # Check if mod loaded (check for any CustomPortals log message)
-              if grep -qi "customportals\|custom.portals" server.log 2>/dev/null; then
+              # Check if mod loaded (check for any Basic Storage log message)
+              if grep -qi "basic.storage\|basicstorage\|Basic Storage" server.log 2>/dev/null; then
                 echo "✅ Mod loaded successfully!"
                 kill $SERVER_PID 2>/dev/null || true
                 wait $SERVER_PID 2>/dev/null || true
@@ -190,7 +190,7 @@ jobs:
               else
                 echo "⚠️ Server started but mod may not have loaded"
                 echo "Searching for mod in logs..."
-                grep -i "customportals\|custom.portals\|mod" server.log | tail -n 10 || echo "No mod-related logs found"
+                grep -i "basic.storage\|basicstorage\|Basic Storage\|mod" server.log | tail -n 10 || echo "No mod-related logs found"
                 echo "Last 50 lines of server.log:"
                 tail -n 50 server.log
                 kill $SERVER_PID 2>/dev/null || true
@@ -337,7 +337,7 @@ jobs:
       - name: Get current version
         id: current_version
         run: |
-          CURRENT_VERSION=$(grep "^mod_version=" gradle.properties | cut -d'=' -f2)
+          CURRENT_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION"
           
@@ -361,8 +361,9 @@ jobs:
       - name: Update gradle.properties
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
-          sed -i "s/^mod_version=.*/mod_version=$NEW_VERSION/" gradle.properties
-          echo "Updated gradle.properties with version $NEW_VERSION"
+          MC_VERSION=$(grep "^[[:space:]]*minecraft_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*minecraft_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          sed -i "s/^[[:space:]]*mod_version[[:space:]]*=.*/mod_version=${NEW_VERSION}+${MC_VERSION}/" gradle.properties
+          echo "Updated gradle.properties with version ${NEW_VERSION}+${MC_VERSION}"
           
       - name: Check if version changed
         id: version_changed
@@ -431,10 +432,15 @@ jobs:
       - name: Extract properties from gradle.properties
         id: properties
         run: |
-          echo "modName=$(./gradlew -q printProperty -Pproperty=jar_name)" >> $GITHUB_OUTPUT
-          echo "modTitle=$(./gradlew -q printProperty -Pproperty=mod_name)" >> $GITHUB_OUTPUT
-          echo "modDescription=$(./gradlew -q printProperty -Pproperty=mod_description)" >> $GITHUB_OUTPUT
-          echo "modVersion=$(./gradlew -q printProperty -Pproperty=mod_version)" >> $GITHUB_OUTPUT
+          MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
+          MOD_NAME=$(grep "^[[:space:]]*archives_base_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*archives_base_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MOD_TITLE=$(grep "^[[:space:]]*mod_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Basic Storage")
+          MOD_DESC=$(grep "^[[:space:]]*mod_description[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_description[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Vanilla-friendly mass item storage")
+          
+          echo "modName=$MOD_NAME" >> $GITHUB_OUTPUT
+          echo "modTitle=$MOD_TITLE" >> $GITHUB_OUTPUT
+          echo "modDescription=$MOD_DESC" >> $GITHUB_OUTPUT
+          echo "modVersion=$MOD_VERSION" >> $GITHUB_OUTPUT
           
       - name: Build all Minecraft versions
         run: |
@@ -474,7 +480,7 @@ jobs:
             ./gradlew build --no-daemon --refresh-dependencies
             
             # Find and copy the built JAR - handle spaces in gradle.properties
-            ACTUAL_MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+            ACTUAL_MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
             ORIGINAL_JAR=$(find build/libs -name "${MOD_NAME}-${ACTUAL_MOD_VERSION}.jar" ! -name "*sources*" ! -name "*dev*" | head -n 1)
             
             # If not found, try pattern match
@@ -652,10 +658,15 @@ jobs:
       - name: Extract properties from gradle.properties
         id: properties
         run: |
-          echo "modName=$(./gradlew -q printProperty -Pproperty=jar_name)" >> $GITHUB_OUTPUT
-          echo "modTitle=$(./gradlew -q printProperty -Pproperty=mod_name)" >> $GITHUB_OUTPUT
-          echo "modDescription=$(./gradlew -q printProperty -Pproperty=mod_description)" >> $GITHUB_OUTPUT
-          echo "modVersion=$(./gradlew -q printProperty -Pproperty=mod_version)" >> $GITHUB_OUTPUT
+          MOD_VERSION=$(grep "^[[:space:]]*mod_version[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' | cut -d'+' -f1)
+          MOD_NAME=$(grep "^[[:space:]]*archives_base_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*archives_base_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MOD_TITLE=$(grep "^[[:space:]]*mod_name[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Basic Storage")
+          MOD_DESC=$(grep "^[[:space:]]*mod_description[[:space:]]*=" gradle.properties | sed 's/^[[:space:]]*mod_description[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]' || echo "Vanilla-friendly mass item storage")
+          
+          echo "modName=$MOD_NAME" >> $GITHUB_OUTPUT
+          echo "modTitle=$MOD_TITLE" >> $GITHUB_OUTPUT
+          echo "modDescription=$MOD_DESC" >> $GITHUB_OUTPUT
+          echo "modVersion=$MOD_VERSION" >> $GITHUB_OUTPUT
           
       - name: List collected JARs
         run: |
