@@ -1,0 +1,13 @@
+{
+  "name": "compostables-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for Compostables mod development",
+  "private": true,
+  "scripts": {
+    "generate-icons": "node generate-web-icons.js"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0",
+    "png-to-ico": "^2.1.8"
+  }
+}
