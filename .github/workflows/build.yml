@@ -406,11 +406,21 @@ jobs:
       - name: Determine release version from tag
         id: release_version
         run: |
-          VERSION="${{ github.event.ref }}"
+          # Get version from tag - try multiple event properties
+          if [ -n "${{ github.event.ref }}" ]; then
+            VERSION="${{ github.event.ref }}"
+          elif [ -n "${{ github.ref }}" ]; then
+            VERSION="${{ github.ref }}"
+          else
+            VERSION="${{ github.event.ref_name }}"
+          fi
           # Remove 'refs/tags/' prefix if present
           VERSION="${VERSION#refs/tags/}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Manual release triggered by tag: $VERSION"
+          echo "Event ref: ${{ github.event.ref }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Ref name: ${{ github.event.ref_name }}"
       
       - name: Checkout tagged code
         uses: actions/checkout@v4
