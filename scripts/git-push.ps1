@@ -4,11 +4,6 @@ param(
     [string]$Remote = "origin"
 )
 
+$env:GIT_TERMINAL_PROMPT = "0"
 git push $Remote $Branch 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) { 
-    Write-Error "Failed to push"
-    exit $LASTEXITCODE 
-}
-
-exit 0
-
+exit $LASTEXITCODE

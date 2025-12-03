@@ -520,12 +520,14 @@ jobs:
             ls -la build/libs/
             
             # Validate we have JARs for all expected versions
-            JAR_COUNT=$(find build/libs -name "${MOD_NAME}-${MOD_VERSION}-*.jar" ! -name "*sources*" ! -name "*dev*" | wc -l)
+            JAR_COUNT=$(find build/libs -name "${MOD_NAME}-${MOD_VERSION}-*.jar" ! -name "*sources*" ! -name "*dev*" 2>/dev/null | wc -l)
             EXPECTED_VERSIONS=6
             if [ "$JAR_COUNT" -lt "$EXPECTED_VERSIONS" ]; then
               echo "⚠️ Warning: Expected $EXPECTED_VERSIONS JARs but found $JAR_COUNT"
               echo "Found JARs:"
-              find build/libs -name "${MOD_NAME}-${MOD_VERSION}-*.jar" ! -name "*sources*" ! -name "*dev*" | sort
+              find build/libs -name "${MOD_NAME}-${MOD_VERSION}-*.jar" ! -name "*sources*" ! -name "*dev*" 2>/dev/null | sort
+              echo "All files in build/libs:"
+              ls -la build/libs/ 2>/dev/null
             else
               echo "✅ Found all $JAR_COUNT expected JARs"
             fi
@@ -568,29 +570,12 @@ jobs:
           echo "$JARS"
           
           # Create newline-separated list for release (action-gh-release expects multiline)
-          # Use absolute paths
-          ABSOLUTE_JARS=""
-          while IFS= read -r jar; do
-            if [ -n "$jar" ]; then
-              if [ ! -f "$jar" ]; then
-                # Try relative to current directory
-                if [ -f "${PWD}/${jar}" ]; then
-                  ABSOLUTE_JARS="${ABSOLUTE_JARS}${PWD}/${jar}"$'\n'
-                else
-                  echo "⚠️ Warning: JAR not found: $jar"
-                fi
-              else
-                ABSOLUTE_JARS="${ABSOLUTE_JARS}${jar}"$'\n'
-              fi
-            fi
-          done <<< "$JARS"
-          
           echo "jars<<EOF" >> $GITHUB_OUTPUT
-          echo -n "$ABSOLUTE_JARS" >> $GITHUB_OUTPUT
+          echo "$JARS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
           echo "📦 Collected JARs for release:"
-          echo "$ABSOLUTE_JARS"
+          echo "$JARS"
           
       - name: Generate changelog
         id: changelog

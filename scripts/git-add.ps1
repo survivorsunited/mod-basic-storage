@@ -6,11 +6,4 @@ if ($Files -eq "." -or $Files.Count -eq 0) {
 } else {
     git add $Files 2>&1 | Out-Null
 }
-
-if ($LASTEXITCODE -ne 0) { 
-    Write-Error "Failed to add files"
-    exit $LASTEXITCODE 
-}
-
-exit 0
-
+exit $LASTEXITCODE

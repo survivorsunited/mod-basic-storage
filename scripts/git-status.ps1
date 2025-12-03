@@ -1,4 +1,3 @@
 # Generic git status script
-git status
+git status >$null 2>&1
 exit $LASTEXITCODE
-
