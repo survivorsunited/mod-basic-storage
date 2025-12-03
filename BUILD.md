@@ -1,6 +1,6 @@
 # Build Documentation
 
-This document explains how to build the Custom Portals mod, test it locally, and manage releases.
+This document explains how to build the Basic Storage mod, test it locally, and manage releases.
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ Built JAR files are located in `build/libs/` with the naming format:
 {jar_name}-{mod_version}.jar
 ```
 
-Example: `custom-portals-1.1.0.jar`
+Example: `basicstorage-1.1.1.jar`
 
 ## Build Configuration
 
@@ -154,20 +154,20 @@ cd test-server
 4. **Verify mod loaded:**
    Look for these messages in the logs:
    ```
-   [main/INFO]: Initializing Custom Portals mod!
-   [main/INFO]: Custom Portals mod initialized!
+   [main/INFO]: [Basic Storage] Filling crates...
+   [main/INFO]: [Basic Storage] {X}/7 registry crates filled!
    ```
 
-### Testing Portal Functionality
+### Testing Storage Functionality
 
 To test the mod:
 
 1. Start the test server
 2. Connect with a Minecraft client
-3. Create a portal frame using any block
-4. Use a portal catalyst to activate the portal
-5. Test portal linking and teleportation
-6. Verify rune effects (haste, gate, enhancer, infinity)
+3. Create crates and store items
+4. Test crate stations for item management
+5. Verify crate hammer functionality
+6. Test item consolidation and locking features
 
 ## CI/CD Pipeline
 
@@ -293,12 +293,12 @@ git push origin "1.0.33"
 
 Each release includes 6 JAR files, one for each supported Minecraft version:
 
-- `su-compostables-{mod_version}-1.21.5.jar`
-- `su-compostables-{mod_version}-1.21.6.jar`
-- `su-compostables-{mod_version}-1.21.7.jar`
-- `su-compostables-{mod_version}-1.21.8.jar`
-- `su-compostables-{mod_version}-1.21.9.jar`
-- `su-compostables-{mod_version}-1.21.10.jar`
+- `basicstorage-{mod_version}-1.21.5.jar`
+- `basicstorage-{mod_version}-1.21.6.jar`
+- `basicstorage-{mod_version}-1.21.7.jar`
+- `basicstorage-{mod_version}-1.21.8.jar`
+- `basicstorage-{mod_version}-1.21.9.jar`
+- `basicstorage-{mod_version}-1.21.10.jar`
 
 All artifacts are:
 - Attached to the GitHub Release
@@ -536,7 +536,7 @@ mod-CustomPortals/
 
 ### CI/CD Files
 - **.github/workflows/build.yml**: Complete CI/CD pipeline configuration
-- **src/main/resources/compostables.mixins.json**: Mixin configuration
+- **src/main/resources/basic-storage.mixins.json**: Mixin configuration
 
 ## Version Management
 
