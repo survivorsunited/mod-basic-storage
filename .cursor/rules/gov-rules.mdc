@@ -6,36 +6,35 @@ alwaysApply: true
 
 ## Project Context
 You are working on a Minecraft Fabric mod project with the following structure:
-- Fabric mod for Minecraft 1.21.10+
-- Uses Fabric Loader 0.17.3+ and Fabric API
+- Fabric mod for Minecraft 1.21
+- Uses Fabric Loader 0.16.9+ and Fabric API
 - Java 21 required
 - Gradle build system with Fabric Loom
 - CI/CD via GitHub Actions (if configured)
-- Custom Portals mod for creating portals from any block
+- Basic Storage mod for vanilla-friendly mass item storage
 
 ## Key Technologies
 - **Language**: Java 21
 - **Build Tool**: Gradle with Fabric Loom
 - **Framework**: Fabric (Minecraft modding)
 - **Testing**: Minecraft test server via build.ps1
-- **Dependencies**: Cardinal Components, YACL (Yet Another Config Lib), ModMenu
+- **Dependencies**: Fabric API (required)
 - **CI/CD**: GitHub Actions (if configured)
 - **Publishing**: Modrinth, GitHub Releases (if configured)
 
 ## Project Structure
 ```
-mod-CustomPortals/
+mod-basic-storage/
 ├── src/main/java/          # Java source code
-│   └── dev/custom/portals/
-│       ├── CustomPortals.java           # Main mod class
-│       ├── CustomPortalsClient.java     # Client class
-│       ├── blocks/                      # Portal blocks
-│       ├── items/                       # Portal items
-│       ├── config/                      # Configuration
-│       ├── data/                        # Portal data storage
-│       ├── mixin/                       # Mixins
-│       ├── registry/                    # Registries
-│       └── util/                        # Utilities
+│   └── com/khazoda/basicstorage/
+│       ├── BasicStorage.java           # Main mod class
+│       ├── BasicStorageClient.java     # Client class
+│       ├── block/                      # Block implementations
+│       ├── item/                       # Item implementations
+│       ├── registry/                   # Registry classes
+│       ├── storage/                    # Storage system
+│       ├── util/                       # Utilities
+│       └── datagen/                    # Data generation
 ├── src/main/resources/     # Resources (mixins, fabric.mod.json)
 ├── scripts/                # Utility scripts
 ├── gradle.properties       # Mod configuration
@@ -43,11 +42,11 @@ mod-CustomPortals/
 ```
 
 ## Namespace Convention
-- **Organization**: dev.custom
-- **Mod ID**: customportals
-- **JAR Name**: custom-portals
-- **Java Package**: dev.custom.portals
-- **Maven Group**: net.custom.portals
+- **Organization**: com.khazoda
+- **Mod ID**: basicstorage
+- **JAR Name**: basicstorage
+- **Java Package**: com.khazoda.basicstorage
+- **Maven Group**: com.khazoda
 
 ## Configuration Management
 All mod properties are centralized in `gradle.properties`:
@@ -77,22 +76,40 @@ All mod properties are centralized in `gradle.properties`:
 - Use existing patterns in codebase
 - NEVER add comments unless explicitly requested
 
+## Language-Specific Rules
+**IMPORTANT**: User rules mention TypeScript standards, but this is a **Java project**. The following clarifications apply:
+
+### TypeScript Rules (Not Applicable)
+- User rules about TypeScript types (`any`, `!`, `as unknown as T`) do NOT apply to Java code
+- Java has its own type system and conventions
+- Follow Java type conventions and patterns
+
+### String Formatting Rules
+- User rules specify double quotes and string templates for TypeScript/JavaScript
+- **For Java code**: Use standard Java string conventions:
+  - Double quotes (`"`) for string literals (standard Java)
+  - String concatenation with `+` is acceptable and common in Java
+  - String formatting with `String.format()` or `MessageFormat` for complex formatting
+  - StringBuilder for performance-critical string building
+  - String templates (Java 21+) can be used but are optional
+- **For TypeScript/JavaScript files** (if any): Follow user rules (double quotes, templates)
+
 ## Testing
 - Use local test server via build.ps1
 - Test both client and server functionality
-- Verify portal creation and linking
-- Check configuration options
+- Verify crate creation and item storage
+- Test crate station GUI functionality
 
 ## Common Tasks
-- **Add new portal block**: Update CPBlocks.java and register block
-- **Add new rune**: Create rune block class extending AbstractRuneBlock
-- **Change portal behavior**: Modify PortalBlock.java
-- **Update config**: Edit CPSettings.java
+- **Add new block**: Update BlockRegistry.java and register block
+- **Add new item**: Update ItemRegistry.java and register item
+- **Modify storage behavior**: Update CrateStorage.java
+- **Change GUI**: Update CrateStationBlockEntity.java
 - **Release new version**: Update mod_version in gradle.properties, commit, tag, push
 
 ## Important Files
 - `gradle.properties`: Central configuration
 - `src/main/resources/fabric.mod.json`: Mod metadata
-- `src/main/java/dev/custom/portals/CustomPortals.java`: Main mod class
-- `src/main/java/dev/custom/portals/blocks/PortalBlock.java`: Portal block logic
-- `src/main/java/dev/custom/portals/config/CPSettings.java`: Configuration
+- `src/main/java/com/khazoda/basicstorage/BasicStorage.java`: Main mod class
+- `src/main/java/com/khazoda/basicstorage/storage/CrateStorage.java`: Storage logic
+- `src/main/java/com/khazoda/basicstorage/block/entity/CrateStationBlockEntity.java`: GUI logic

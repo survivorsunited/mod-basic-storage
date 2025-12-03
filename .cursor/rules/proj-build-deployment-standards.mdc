@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 
-# Build & Deployment Standards - Custom Portals Mod
+# Build & Deployment Standards - Basic Storage Mod
 
 ## Build System
 - Use Gradle with Fabric Loom
@@ -29,11 +29,10 @@ alwaysApply: true
 
 ## Version Management
 - Update version in `gradle.properties`
-- Version format: `{mod_version}+{minecraft_version}` (e.g., `3.11.0+1.21.10`)
-- Main branch format: `mod_version = x.y.z` (no Minecraft version suffix)
+- Version format: `{mod_version}+{minecraft_version}` (e.g., `1.1.1+1.21`)
+- Main branch format: `mod_version = x.y.z+{minecraft_version}`
 - Create git tags for releases
 - GitHub Actions handles automated publishing (if configured)
-- Version configuration in `versions.json` for multi-version support
 
 ## Environment Variables
 - `MODRINTH_TOKEN` - For Modrinth API access (if publishing)
@@ -65,10 +64,10 @@ alwaysApply: true
 
 ## Build Configuration
 - Java 21 required
-- Minecraft version: 1.21.10+ (supports 1.21.5-1.21.10)
-- Fabric Loader: 0.17.3+
-- Fabric API: 0.136.0+
-- Uses Cardinal Components and YACL dependencies
+- Minecraft version: 1.21
+- Fabric Loader: 0.16.9+
+- Fabric API: 0.102.0+1.21
+- No additional mod dependencies required
 
 ## Pipeline and CI/CD
 - GitHub Actions workflow: `.github/workflows/build.yml`

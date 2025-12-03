@@ -91,19 +91,19 @@ npm run clear
   - Review for accuracy regularly
   - Fix broken links promptly
 
-## Custom Portals Mod Documentation Guidelines
+## Basic Storage Mod Documentation Guidelines
 
 ### General Principles
 - Maintain consistency across all documentation files
 - Use proper Minecraft terminology
-- Document portal mechanics clearly
+- Document storage mechanics clearly
 - Keep configuration options well-documented
 - Update documentation when adding new features
 
-### Portal System Documentation
-- Document portal creation process
-- Explain portal linking mechanics
-- Describe rune effects and usage
+### Storage System Documentation
+- Document crate creation and usage
+- Explain storage mechanics and limits
+- Describe crate station functionality
 - Include configuration options and defaults
 - Provide troubleshooting guidance
 

@@ -71,61 +71,90 @@ public class MyMod implements ModInitializer {
 - Follow single responsibility principle
 - Minimize mixin usage when possible
 
-## Custom Portals Mod Specific Standards
+## Language-Specific Clarifications
+
+### TypeScript Rules Do Not Apply
+**IMPORTANT**: User rules mention TypeScript standards (no `any`, no `!`, no `as unknown as T`), but these are **TypeScript-specific** and do NOT apply to Java code:
+- Java has its own type system (primitives, objects, generics)
+- Java uses different type safety mechanisms
+- Follow Java conventions, not TypeScript conventions
+
+### String Formatting for Java
+User rules specify double quotes and string templates for TypeScript/JavaScript. **For Java code**, use standard Java conventions:
+- **String literals**: Use double quotes (`"`) - this is standard Java
+- **String concatenation**: Using `+` operator is acceptable and common in Java
+- **String formatting**: Use `String.format()`, `MessageFormat`, or `StringBuilder` for complex formatting
+- **String templates** (Java 21+): Optional feature, can be used but not required
+- **Performance**: Use `StringBuilder` for building strings in loops or performance-critical code
+
+Example:
+```java
+// Standard Java string concatenation (acceptable)
+String message = "Hello " + name + "!";
+
+// String formatting (preferred for complex formatting)
+String message = String.format("Hello %s!", name);
+
+// StringBuilder for performance-critical code
+StringBuilder sb = new StringBuilder();
+sb.append("Hello ").append(name).append("!");
+String message = sb.toString();
+```
+
+## Basic Storage Mod Specific Standards
 
 ### Code Style
 - Use proper indentation (tabs as shown in existing code)
 - Follow existing naming conventions
 - Add meaningful comments for complex logic
 - Use proper Java logging with LOGGER.info() or LOGGER.debug()
-- Package: `dev.custom.portals.*`
+- Package: `com.khazoda.basicstorage.*`
 
 ### Minecraft Fabric Specific
-- Main class: `CustomPortals` implements `ModInitializer` and `WorldComponentInitializer`
-- Client class: `CustomPortalsClient` for client-side initialization
-- Use `Identifier.of("customportals", "name")` for resource identifiers
+- Main class: `BasicStorage` implements `ModInitializer`
+- Client class: `BasicStorageClient` for client-side initialization
+- Use `Identifier.of("basicstorage", "name")` for resource identifiers
 - Register blocks/items using Fabric registries: `Registry.register(Registries.BLOCK, ...)`
-- Use Cardinal Components API for world data storage
-- Use YACL (Yet Another Config Lib) for configuration management
+- Use data components for item storage
+- Constants defined in `Constants.java` class
 
-### Portal System Patterns
+### Storage System Patterns
 ```java
-// Portal data storage using Cardinal Components
-public static final ComponentKey<BasePortalComponent> PORTALS = ComponentRegistryV3.INSTANCE
-    .getOrCreate(Identifier.of("customportals:portals"), BasePortalComponent.class);
+// Constants definition
+public static final String BS_NAMESPACE = "basicstorage";
+public static final String BS_NAME = "Basic Storage";
+public static final Logger BS_LOG = LoggerFactory.getLogger(BS_NAME);
 
-// Portal registration
-CustomPortal portal = new CustomPortal(frameId, dimensionId, color, spawnPos, blocks, offsetX, offsetZ, creatorId);
+// Registry registration
+Registry.register(Registries.BLOCK, Identifier.of(Constants.BS_NAMESPACE, "name"), block);
 ```
 
 ### Registry Pattern
 ```java
 // Block registration
-Registry.register(Registries.BLOCK, Identifier.of(MOD_ID, "name"), block);
-Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "name"), new BlockItem(block, new Item.Settings()));
+Registry.register(Registries.BLOCK, Identifier.of(Constants.BS_NAMESPACE, "name"), block);
+Registry.register(Registries.ITEM, Identifier.of(Constants.BS_NAMESPACE, "name"), new BlockItem(block, new Item.Settings()));
 
 // Item registration
-Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "name"), item);
+Registry.register(Registries.ITEM, Identifier.of(Constants.BS_NAMESPACE, "name"), item);
 ```
 
-### Configuration Pattern
-- Use YACL annotations for config UI generation
-- `@AutoGen(category = "category_name")` - Category grouping
-- `@Boolean`, `@IntField`, `@EnumCycler()` - Field types
-- `@SerialEntry(comment = "...")` - Documentation
-- Access config via `CPSettings.instance()`
+### Data Component Pattern
+- Use data components for item storage
+- Register components in `DataComponentRegistry`
+- Access via `ItemStack.get(ComponentType)`
 
 ### Error Handling
 - Always check if blocks/items exist before accessing
 - Use proper exception handling for mod initialization
 - Log errors appropriately with LOGGER.error()
-- Handle missing world components gracefully
+- Handle missing components gracefully
 
 ### Testing
-- Test portal creation and linking
-- Verify teleportation works correctly
-- Test configuration changes
-- Verify rune effects (haste, gate, enhancer, infinity)
+- Test crate creation and storage
+- Verify item storage and retrieval works correctly
+- Test crate station functionality
+- Verify data component persistence
 - Test both client and server functionality
 description:
 globs:

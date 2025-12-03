@@ -12,39 +12,38 @@ This is a Minecraft Fabric mod project template with automated builds, testing, 
 - `build.gradle` - Main build configuration for Fabric mod
 - `gradle.properties` - Project properties and version definitions
 - `settings.gradle` - Gradle project settings with Fabric repository
-- `src/main/java/dev/custom/portals/CustomPortals.java` - Main mod entry point
-- `src/main/java/dev/custom/portals/CustomPortalsClient.java` - Client entry point
+- `src/main/java/com/khazoda/basicstorage/BasicStorage.java` - Main mod entry point
+- `src/main/java/com/khazoda/basicstorage/BasicStorageClient.java` - Client entry point
 
 ### Resources
 - `src/main/resources/fabric.mod.json` - Fabric mod metadata
-- `src/main/resources/data/customportals/recipes/` - Recipe definitions
-- `src/main/resources/assets/customportals/lang/` - Localization files
-- `src/main/resources/assets/customportals/textures/` - Texture assets
-- `src/main/resources/assets/customportals/models/` - Model files
-- `src/main/resources/customportals.mixins.json` - Mixin configuration
+- `src/main/resources/data/basicstorage/recipes/` - Recipe definitions
+- `src/main/resources/assets/basicstorage/lang/` - Localization files
+- `src/main/resources/assets/basicstorage/textures/` - Texture assets
+- `src/main/resources/assets/basicstorage/models/` - Model files
+- `src/main/resources/basic-storage.mixins.json` - Mixin configuration
 
 ### Build & CI/CD
 - `build.ps1` - PowerShell build script for local development (Windows)
 - `.github/workflows/build.yml` - GitHub Actions CI/CD pipeline (if configured)
 
 ### Java Package Structure
-- `dev.custom.portals` - Main package
-- `dev.custom.portals.blocks` - Portal block implementations
-- `dev.custom.portals.items` - Portal item implementations
-- `dev.custom.portals.config` - Configuration system
-- `dev.custom.portals.data` - Portal data storage
-- `dev.custom.portals.mixin` - Mixins for game modifications
-- `dev.custom.portals.registry` - Registry classes
-- `dev.custom.portals.util` - Utility classes
+- `com.khazoda.basicstorage` - Main package
+- `com.khazoda.basicstorage.block` - Block implementations
+- `com.khazoda.basicstorage.item` - Item implementations
+- `com.khazoda.basicstorage.registry` - Registry classes
+- `com.khazoda.basicstorage.storage` - Storage system
+- `com.khazoda.basicstorage.util` - Utility classes
+- `com.khazoda.basicstorage.datagen` - Data generation
 
 ## Key Technical Details
-- **Minecraft Version**: 1.21.10
-- **Fabric Loader**: 0.17.3+
-- **Fabric API**: 0.136.0+
+- **Minecraft Version**: 1.21
+- **Fabric Loader**: 0.16.9+
+- **Fabric API**: 0.102.0+1.21
 - **Java Version**: 21
 - **Gradle**: Latest with Fabric Loom
-- **Mod ID**: customportals
-- **Maven Group**: net.custom.portals
+- **Mod ID**: basicstorage
+- **Maven Group**: com.khazoda
 
 ## Development Workflow
 1. Configure mod properties in `gradle.properties`

@@ -1,0 +1,122 @@
+---
+alwaysApply: true
+---
+
+# Basic Storage Mod Specific Context
+
+## Mod Overview
+The Basic Storage mod provides vanilla-friendly mass item storage through crates and crate stations. Players can store large quantities of items in compact crates that can be managed via crate stations.
+
+## Current Implementation
+
+### Main Features
+- **Crates**: Store up to 1 billion items of a single type
+- **Crate Stations**: Interface for managing crates and transferring items
+- **Crate Hammer**: Tool for breaking crates without losing stored items
+- **Data Components**: Uses Minecraft's data component system for item storage
+- **Vanilla-Friendly**: Minimal changes to vanilla gameplay
+
+### Storage System
+- **Crate Blocks**: Storage blocks that hold items via data components
+- **Crate Stations**: Block entities that provide GUI for crate management
+- **Crate Slots**: Data structure for storing item type and count
+- **Storage Logic**: Handles item insertion, extraction, and validation
+
+### Technical Implementation
+1. **Data Components**: Uses Minecraft's data component system for item storage
+2. **Block Entities**: CrateStationBlockEntity handles GUI and item transfer
+3. **Storage Logic**: CrateStorage class manages item storage and retrieval
+4. **Rendering**: Custom renderers for crate display
+
+## Project-Specific Details
+
+### Namespace
+- Mod ID: `basicstorage`
+- Java package: `com.khazoda.basicstorage`
+- Main class: `BasicStorage`
+- Client class: `BasicStorageClient`
+- Maven group: `com.khazoda`
+
+### Key Classes
+- `BasicStorage.java`: Main mod initialization
+- `BasicStorageClient.java`: Client-side initialization
+- `CrateBlock.java`: Crate block implementation
+- `CrateStationBlock.java`: Crate station block implementation
+- `CrateBlockEntity.java`: Crate block entity
+- `CrateStationBlockEntity.java`: Crate station block entity with GUI
+- `CrateStorage.java`: Storage logic and item management
+- `Constants.java`: Mod constants and configuration
+
+### Current Version
+- Mod version: 1.1.1+1.21
+- Minecraft: 1.21
+- Fabric Loader: 0.16.9+
+- Fabric API: 0.102.0+1.21
+
+### Dependencies
+- Fabric API (required)
+- No additional mod dependencies
+
+## Development Notes
+- Storage uses data components for item persistence
+- Maximum storage per crate: 1 billion items (CRATE_MAX_COUNT)
+- Crates can be broken with crate hammer without losing items
+- Crate stations provide GUI for item management
+- Supports multiple languages via translation files
+
+### Mixin Development Guidelines
+When working with mixins in this project:
+1. **Client Mixins**: Handle rendering and client-side behavior
+2. **Render System**: Custom renderers for crate display
+3. **Item Renderers**: Built-in item renderers for crates
+
+### Common Tasks
+- **Add new crate type**: Register new crate block and item
+- **Modify storage behavior**: Update CrateStorage.java logic
+- **Change GUI**: Update CrateStationBlockEntity.java
+- **Add new item**: Register in ItemRegistry.java
+
+### Important File Locations
+- Mixins: `src/client/java/com/khazoda/basicstorage/mixin/`
+- Mixin config: `src/main/resources/basic-storage.mixins.json`
+- Storage logic: `src/main/java/com/khazoda/basicstorage/storage/`
+- Block entities: `src/main/java/com/khazoda/basicstorage/block/entity/`
+- Registries: `src/main/java/com/khazoda/basicstorage/registry/`
+
+## Mod Development Guidelines
+
+### Fabric Mod Structure
+- Main class: `BasicStorage.java` implements `ModInitializer`
+- Client class: `BasicStorageClient.java` for client-side code
+- Register components in `onInitialize()` method
+- Use proper Fabric API patterns
+
+### Block Registration
+- Register in `BlockRegistry.init()`
+- Crate blocks extend `CrateBlock` class
+- Crate station blocks extend `CrateStationBlock` class
+- Use proper block properties and settings
+
+### Item Registration
+- Register in `ItemRegistry.init()`
+- Crate hammer is a custom item
+- Items can have custom behaviors via mixins
+
+### Data Component System
+- Register components in `DataComponentRegistry.init()`
+- Use `CrateSlotComponent` for crate item storage
+- Access via `ItemStack.get(ComponentType)`
+
+### Testing Requirements
+- Test crate creation and item storage
+- Verify item storage and retrieval works correctly
+- Test crate station GUI functionality
+- Verify data component persistence
+- Test crate hammer functionality
+- Ensure compatibility with other mods
+
+### Version Compatibility
+- Target Minecraft 1.21
+- Use Fabric Loader 0.16.9+
+- Require Fabric API 0.102.0+1.21
+- Requires Java 21
