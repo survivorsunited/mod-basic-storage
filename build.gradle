@@ -46,10 +46,42 @@ dependencies {
 }
 
 processResources {
-	inputs.property "version", project.version
+	inputs.property "mod_version", project.mod_version
+	inputs.property "mod_id", project.mod_id
+	inputs.property "mod_name", project.mod_name
+	inputs.property "mod_description", project.mod_description
+	inputs.property "mod_author", project.mod_author
+	inputs.property "mod_homepage", project.mod_homepage
+	inputs.property "mod_sources", project.mod_sources
+	inputs.property "mod_issues", project.mod_issues
+	inputs.property "mod_license", project.mod_license
+	inputs.property "mod_icon", project.mod_icon
+	inputs.property "main_class", project.main_class
+	inputs.property "client_class", project.client_class
+	inputs.property "minecraft_version", project.minecraft_version
+	inputs.property "fabric_loader_version", project.fabric_loader_version
+	inputs.property "fabric_version", project.fabric_version
+	inputs.property "java_version", project.java_version
 
 	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		expand(
+			"mod_version": project.mod_version,
+			"mod_id": project.mod_id,
+			"mod_name": project.mod_name,
+			"mod_description": project.mod_description,
+			"mod_author": project.mod_author,
+			"mod_homepage": project.mod_homepage,
+			"mod_sources": project.mod_sources,
+			"mod_issues": project.mod_issues,
+			"mod_license": project.mod_license,
+			"mod_icon": project.mod_icon,
+			"main_class": project.main_class,
+			"client_class": project.client_class,
+			"minecraft_version": project.minecraft_version,
+			"fabric_loader_version": project.fabric_loader_version,
+			"fabric_version": project.fabric_version,
+			"java_version": project.java_version
+		)
 	}
 }
 

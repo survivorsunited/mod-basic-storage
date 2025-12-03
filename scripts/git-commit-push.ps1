@@ -7,8 +7,9 @@ param(
     [string]$Remote = "origin"
 )
 
-# Prevent hanging
+$ErrorActionPreference = "Stop"
 $env:GIT_TERMINAL_PROMPT = "0"
+$env:GIT_ASKPASS = "echo"
 
 if ($Files -eq "." -or $Files.Count -eq 0) {
     git add . 2>&1 | Out-Null
