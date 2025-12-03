@@ -551,7 +551,11 @@ jobs:
           if [ -z "$JARS" ]; then
             echo "❌ No versioned JARs found"
             echo "Expected pattern: ${MOD_NAME}-${MOD_VERSION}-*.jar"
-            ls -la build/libs/
+            echo "Available files:"
+            ls -la build/libs/ || echo "build/libs does not exist"
+            echo ""
+            echo "Trying to find any JAR files:"
+            find build/libs -name "*.jar" 2>/dev/null || echo "No JARs found"
             exit 1
           fi
           
@@ -559,12 +563,29 @@ jobs:
           echo "$JARS"
           
           # Create newline-separated list for release (action-gh-release expects multiline)
+          # Use absolute paths
+          ABSOLUTE_JARS=""
+          while IFS= read -r jar; do
+            if [ -n "$jar" ]; then
+              if [ ! -f "$jar" ]; then
+                # Try relative to current directory
+                if [ -f "${PWD}/${jar}" ]; then
+                  ABSOLUTE_JARS="${ABSOLUTE_JARS}${PWD}/${jar}"$'\n'
+                else
+                  echo "⚠️ Warning: JAR not found: $jar"
+                fi
+              else
+                ABSOLUTE_JARS="${ABSOLUTE_JARS}${jar}"$'\n'
+              fi
+            fi
+          done <<< "$JARS"
+          
           echo "jars<<EOF" >> $GITHUB_OUTPUT
-          echo "$JARS" >> $GITHUB_OUTPUT
+          echo -n "$ABSOLUTE_JARS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
-          echo "📦 Found JARs:"
-          echo "$JARS"
+          echo "📦 Collected JARs for release:"
+          echo "$ABSOLUTE_JARS"
           
       - name: Generate changelog
         id: changelog
