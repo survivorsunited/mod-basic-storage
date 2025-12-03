@@ -1,0 +1,108 @@
+---
+alwaysApply: true
+---
+
+
+# JSON Recipe Standards for Minecraft
+
+## Recipe File Structure
+- Place recipes in `src/main/resources/data/{modid}/recipes/`
+- Use appropriate recipe type for your crafting method
+- Use descriptive filenames that match the output item
+
+## Common Recipe Types
+- `minecraft:crafting_shaped` - Shaped crafting table recipes
+- `minecraft:crafting_shapeless` - Shapeless crafting recipes
+- `minecraft:smelting` - Furnace recipes
+- `minecraft:blasting` - Blast furnace recipes
+- `minecraft:smoking` - Smoker recipes
+- `minecraft:campfire_cooking` - Campfire recipes
+- `minecraft:stonecutting` - Stonecutter recipes
+- `minecraft:smithing` - Smithing table recipes
+
+## Shaped Recipe Format
+```json
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ABC",
+    "DEF",
+    "GHI"
+  ],
+  "key": {
+    "A": {"item": "minecraft:diamond"},
+    "B": {"item": "minecraft:stick"},
+    "C": {"tag": "minecraft:planks"}
+  },
+  "result": {
+    "item": "modid:custom_item",
+    "count": 1
+  },
+  "show_notification": true
+}
+```
+
+## Shapeless Recipe Format
+```json
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {"item": "minecraft:diamond"},
+    {"item": "minecraft:stick"},
+    {"tag": "minecraft:planks"}
+  ],
+  "result": {
+    "item": "modid:custom_item",
+    "count": 1
+  }
+}
+```
+
+## Smelting Recipe Format
+```json
+{
+  "type": "minecraft:smelting",
+  "ingredient": {"item": "minecraft:iron_ore"},
+  "result": "minecraft:iron_ingot",
+  "experience": 0.7,
+  "cookingtime": 200
+}
+```
+
+## Pattern Guidelines
+- Use 3x3 grid for shaped recipes (can be smaller)
+- Use single uppercase letters for ingredient keys
+- Space characters represent empty slots
+- Pattern should be visually intuitive
+- Consider multiple valid patterns for flexibility
+
+## Ingredient Types
+- `{"item": "minecraft:item_name"}` - Specific item
+- `{"tag": "minecraft:tag_name"}` - Any item with tag
+- `[{"item": "..."}, {"item": "..."}]` - Choice of items
+
+## Custom Tags
+Create tags in `src/main/resources/data/{modid}/tags/items/`:
+```json
+{
+  "replace": false,
+  "values": [
+    "minecraft:oak_log",
+    "minecraft:birch_log",
+    "#minecraft:logs"
+  ]
+}
+```
+
+## Best Practices
+- Use tags for ingredient flexibility
+- Keep recipes balanced and logical
+- Test all recipes in-game
+- Document complex recipes
+- Consider recipe unlocking/advancements
+- Use consistent naming conventions
+- Avoid recipe conflicts with other mods
+description:
+globs:
+alwaysApply: false
+---

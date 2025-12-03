@@ -1,0 +1,112 @@
+---
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Local Development Setup
+1. **Java Environment**: Install JDK 21 (required for Minecraft 1.21.x)
+2. **Build Scripts**: 
+   - Windows: Use `build.ps1` with correct JDK path
+   - Linux/Mac: Use `build.sh` with correct JDK path
+3. **IDE**: Any Java IDE with Gradle support (IntelliJ IDEA recommended)
+
+## Development Process
+1. **Code Changes**: Modify Java files in `src/main/java/`
+2. **Recipe Changes**: Update JSON files in `src/main/resources/data/{modid}/recipes/`
+3. **Assets**: Add textures, models, and sounds to `src/main/resources/assets/{modid}/`
+4. **Localization**: Update language files in `src/main/resources/assets/{modid}/lang/`
+5. **Documentation**: Update Markdown files in `docs/docs/`
+
+## Testing Workflow
+### Standard Testing Process
+1. **Build Project**: 
+   - Windows: `./build.ps1`
+   - Linux/Mac: `./build.sh`
+   - Direct: `./gradlew build`
+2. **Client Testing**: `./gradlew runClient` - Test in single-player
+3. **Server Testing**: `./gradlew runServer` - Test multiplayer compatibility
+4. **Documentation**: `cd docs && npm start` - Preview documentation locally
+5. **Unit Tests**: `./gradlew test` - Run automated tests (if configured)
+
+### Project-Specific Testing Workflow
+1. Build: `.\build.ps1`
+2. Start test server: `.\build.ps1 -StartServer`
+3. Check logs: `test-server/logs/latest.log`
+4. Fix issues based on runtime errors
+5. Rebuild and test again
+
+### Debugging Commands
+```bash
+# Check for compilation errors
+./gradlew compileJava
+
+# Run with more details
+./gradlew build --stacktrace
+
+# Clean build
+./gradlew clean build
+```
+
+## Version Management
+1. Update `mod_version` in `gradle.properties`
+2. Update changelog/release notes
+3. Commit changes: `git commit -m "Bump version to X.Y.Z"`
+4. Create Git tag: `git tag X.Y.Z`
+5. Push changes and tag: `git push origin main && git push origin X.Y.Z`
+
+## Key Commands
+```bash
+# Setup
+./gradlew clean         # Clean build artifacts
+
+# Development
+./gradlew build         # Build mod JAR
+./gradlew runClient     # Test in Minecraft client
+./gradlew runServer     # Test on Minecraft server
+./gradlew test          # Run tests
+
+# Documentation
+cd docs
+npm install             # Install dependencies (first time)
+npm start               # Local preview
+npm run build           # Build for production
+
+# Release
+git tag X.Y.Z           # Create version tag
+git push origin X.Y.Z   # Push tag (triggers release)
+```
+
+## File Organization
+- **Source Code**: `src/main/java/{package}/` - Java classes
+- **Resources**: `src/main/resources/`
+  - `fabric.mod.json` - Mod metadata
+  - `data/{modid}/` - Data files (recipes, loot tables, etc.)
+  - `assets/{modid}/` - Client assets (textures, models, lang)
+- **Documentation**: `docs/` - Docusaurus site
+- **Configuration**: Root directory
+  - `build.gradle` - Build configuration
+  - `gradle.properties` - Project properties
+  - `settings.gradle` - Gradle settings
+
+## Best Practices
+- **Version Control**: 
+  - Use descriptive commit messages
+  - Create feature branches for major changes
+  - Keep commits atomic and focused
+- **Testing**:
+  - Test all features in both client and server
+  - Verify recipes work as intended
+  - Check for mod compatibility issues
+- **Code Quality**:
+  - Follow Java coding standards
+  - Keep mod logic simple and maintainable
+  - Document complex functionality
+- **Performance**:
+  - Profile performance impact
+  - Optimize resource usage
+  - Minimize startup time
+description:
+globs:
+alwaysApply: false
+---

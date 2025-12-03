@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+
+# CI/CD Workflow Standards
+
+## GitHub Actions Pipeline
+The main workflow is in `.github/workflows/build.yml` with three stages:
+
+### Build Stage
+- Runs on every push and pull request
+- Uses Java 21 and Ubuntu 24.04
+- Builds the mod using Gradle
+- Uploads artifacts for later stages
+
+### Documentation Stage
+- Builds Docusaurus documentation site
+- Deploys to GitHub Pages on main branch
+- Uses Node.js 18 for build process
+
+### Release Stage
+- Triggers only on tag creation
+- Generates dynamic changelog from Git history
+- Creates GitHub release with artifacts
+- Publishes to Modrinth automatically
+
+## Key Features
+- **Dynamic Changelog**: Generated from Git commit history
+- **Multi-Platform Publishing**: GitHub Releases + Modrinth (optional)
+- **Staged Pipeline**: Build → Docs → Release dependencies
+- **Tag-Based Releases**: Only publishes when tags are created
+- **Automated Testing**: Runs tests on every push/PR
+
+## Environment Variables (GitHub Secrets)
+- `MODRINTH_TOKEN` - For Modrinth publishing (optional)
+- `PROJECT_ID` - Modrinth project identifier (optional)
+- `GITHUB_TOKEN` - For GitHub releases (auto-provided)
+- Additional secrets can be configured as needed
+
+## Release Process
+1. Update version in `gradle.properties`
+2. Commit changes: `git commit -m "Release version X.Y.Z"`
+3. Create and push a tag: `git tag X.Y.Z && git push origin X.Y.Z`
+4. Pipeline automatically:
+   - Builds the mod
+   - Runs tests
+   - Generates changelog from commit history
+   - Creates GitHub release with artifacts
+   - Publishes to Modrinth (if configured)
+   - Updates documentation site
+
+## Important Notes
+- Use Ubuntu 24.04 for consistency
+- Java 21 is required for modern Minecraft versions
+- Documentation site uses Docusaurus v3
+- Pipeline uses latest GitHub Actions (v4)
+- Supports both Windows and Linux development
+- Consider adding platform-specific tests
+description:
+globs:
+alwaysApply: false
+---

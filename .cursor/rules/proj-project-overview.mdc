@@ -1,0 +1,61 @@
+---
+alwaysApply: true
+---
+
+# Minecraft Fabric Mod Project
+
+This is a Minecraft Fabric mod project template with automated builds, testing, and documentation.
+
+## Project Structure
+
+### Core Mod Files
+- `build.gradle` - Main build configuration for Fabric mod
+- `gradle.properties` - Project properties and version definitions
+- `settings.gradle` - Gradle project settings with Fabric repository
+- `src/main/java/dev/custom/portals/CustomPortals.java` - Main mod entry point
+- `src/main/java/dev/custom/portals/CustomPortalsClient.java` - Client entry point
+
+### Resources
+- `src/main/resources/fabric.mod.json` - Fabric mod metadata
+- `src/main/resources/data/customportals/recipes/` - Recipe definitions
+- `src/main/resources/assets/customportals/lang/` - Localization files
+- `src/main/resources/assets/customportals/textures/` - Texture assets
+- `src/main/resources/assets/customportals/models/` - Model files
+- `src/main/resources/customportals.mixins.json` - Mixin configuration
+
+### Build & CI/CD
+- `build.ps1` - PowerShell build script for local development (Windows)
+- `.github/workflows/build.yml` - GitHub Actions CI/CD pipeline (if configured)
+
+### Java Package Structure
+- `dev.custom.portals` - Main package
+- `dev.custom.portals.blocks` - Portal block implementations
+- `dev.custom.portals.items` - Portal item implementations
+- `dev.custom.portals.config` - Configuration system
+- `dev.custom.portals.data` - Portal data storage
+- `dev.custom.portals.mixin` - Mixins for game modifications
+- `dev.custom.portals.registry` - Registry classes
+- `dev.custom.portals.util` - Utility classes
+
+## Key Technical Details
+- **Minecraft Version**: 1.21.10
+- **Fabric Loader**: 0.17.3+
+- **Fabric API**: 0.136.0+
+- **Java Version**: 21
+- **Gradle**: Latest with Fabric Loom
+- **Mod ID**: customportals
+- **Maven Group**: net.custom.portals
+
+## Development Workflow
+1. Configure mod properties in `gradle.properties`
+2. Implement mod functionality in Java classes
+3. Add recipes, textures, and other assets
+4. Test locally using `.\build.ps1` or `./gradlew runClient`
+5. Build mod JAR with `.\build.ps1` or `./gradlew build`
+6. Create releases using Git tags
+7. CI/CD automatically publishes to GitHub and Modrinth (if configured)
+
+description:
+globs:
+alwaysApply: false
+---

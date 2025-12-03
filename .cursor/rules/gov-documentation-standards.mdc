@@ -1,0 +1,149 @@
+---
+alwaysApply: true
+---
+
+# Documentation Standards with Docusaurus
+
+## Documentation Structure
+- `docs/docs/` - Main documentation pages
+- `docs/docusaurus.config.ts` - Site configuration
+- `docs/sidebars.ts` - Navigation structure
+- `docs/static/` - Static assets (images, downloads)
+- `docs/src/` - Custom components and styling
+
+## Standard Documentation Pages
+- `intro.md` - Introduction and mod overview
+- `installation.md` - Installation guide for players and servers
+- `usage.md` - How to use the mod features
+- `configuration.md` - Configuration options (if applicable)
+- `faq.md` - Frequently asked questions
+- `technical.md` - Technical details for developers
+- `changelog.md` - Version history and changes
+
+## Content Standards
+- **Writing Style**:
+  - Use clear, concise language
+  - Write for both new and experienced players
+  - Avoid technical jargon where possible
+- **Formatting**:
+  - Use proper Markdown headings (##, ###)
+  - Include code blocks with syntax highlighting
+  - Add images for complex concepts
+- **Media**:
+  - Store images in `docs/static/img/`
+  - Use descriptive filenames
+  - Optimize images for web (PNG/JPG)
+  - Reference with `/img/filename.png`
+
+## Site Configuration
+- Homepage redirects to documentation
+- Navbar includes logo and navigation
+- Search functionality enabled
+- GitHub Pages deployment configured
+- Custom styling in `docs/src/css/custom.css`
+
+## Key Features
+- **Local Search**: Client-side search functionality
+- **Responsive Design**: Mobile and desktop optimized
+- **Theme Support**: Dark/light mode switching
+- **Version Control**: Edit links to GitHub repository
+- **Navigation**: Auto-generated sidebars
+- **SEO**: Metadata and sitemap generation
+- **Analytics**: Optional analytics integration
+
+## Documentation Development
+```bash
+cd docs
+
+# First time setup
+npm install
+
+# Local development (hot reload)
+npm start
+
+# Build for production
+npm run build
+
+# Test production build locally
+npm run serve
+
+# Clear cache if needed
+npm run clear
+```
+
+## Deployment
+- Automatic deployment via GitHub Actions
+- Deploys to GitHub Pages on main branch
+- Custom domains supported
+- Version tagging for releases
+
+## Best Practices
+- **Organization**:
+  - Group related topics together
+  - Use consistent page structure
+  - Create logical navigation flow
+- **Content**:
+  - Include practical examples
+  - Add screenshots for UI elements
+  - Provide troubleshooting sections
+- **Maintenance**:
+  - Update docs with each release
+  - Review for accuracy regularly
+  - Fix broken links promptly
+
+## Custom Portals Mod Documentation Guidelines
+
+### General Principles
+- Maintain consistency across all documentation files
+- Use proper Minecraft terminology
+- Document portal mechanics clearly
+- Keep configuration options well-documented
+- Update documentation when adding new features
+
+### Portal System Documentation
+- Document portal creation process
+- Explain portal linking mechanics
+- Describe rune effects and usage
+- Include configuration options and defaults
+- Provide troubleshooting guidance
+
+### File Naming Conventions
+- Use kebab-case for documentation files
+- Follow Minecraft naming conventions
+- Use descriptive names for feature documentation
+
+### Files to Update Together
+When making changes, update:
+1. `README.md` - Project overview
+2. `BUILD.md` - Build instructions (if applicable)
+3. Configuration documentation
+4. Any feature-specific documentation
+
+### Image Links (if applicable)
+- Use minecraft.wiki image sprites when referencing vanilla blocks/items
+- Format: `https://minecraft.wiki/images/[Type]Sprite_[item-name].png?[hash]`
+- Types: ItemSprite, BlockSprite, Invicon
+- Always include alt text and titles
+
+### Wiki Links (if applicable)
+- Link to official Minecraft wiki pages for vanilla content
+- Format: `https://minecraft.wiki/w/[Item_Name]`
+- Use proper page names (spaces become underscores)
+- Include title attributes for accessibility
+
+### Markdown Best Practices
+- Use proper heading hierarchy
+- Include code blocks for configuration examples
+- Keep line lengths reasonable for readability
+- Use clear, concise language
+- Include examples where helpful
+
+### Configuration Documentation
+- Document all configuration options
+- Explain default values
+- Provide usage examples
+- Note any important behavior changes
+description:
+globs:
+alwaysApply: false
+---
