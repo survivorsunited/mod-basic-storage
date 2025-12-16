@@ -7,5 +7,7 @@
   "block.basicstorage.crate_station": "Kistenstation",
   "item.basicstorage.crate_hammer": "Kistenhammer",
   "message.basicstorage.station.connected_crate_count": "• %d Kisten Verbunden •",
-  "message.basicstorage.station.no_matching_crates": "• Keine Passenden Kisten •"
+  "message.basicstorage.station.no_matching_crates": "• Keine Passenden Kisten •",
+  "message.basicstorage.station.items_consolidated": "• Gegenstände Konsolidiert •",
+  "message.basicstorage.station.no_items_to_consolidate": "• Keine Gegenstände Zu Konsolidieren •"
 }

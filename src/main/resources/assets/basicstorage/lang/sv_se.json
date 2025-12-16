@@ -7,5 +7,7 @@
   "block.basicstorage.crate_station": "Låd-station",
   "item.basicstorage.crate_hammer": "Låd-hammare",
   "message.basicstorage.station.connected_crate_count": "%d Lådor Kopplade",
-  "message.basicstorage.station.no_matching_crates": "Inga Liknande Lådor"
+  "message.basicstorage.station.no_matching_crates": "Inga Liknande Lådor",
+  "message.basicstorage.station.items_consolidated": "• Föremål Konsoliderade •",
+  "message.basicstorage.station.no_items_to_consolidate": "• Inga Föremål Att Konsolidera •"
 }

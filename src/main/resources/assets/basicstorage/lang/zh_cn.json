@@ -7,5 +7,7 @@
   "block.basicstorage.crate_station": "存储管理站",
   "item.basicstorage.crate_hammer": "卸货锤",
   "message.basicstorage.station.connected_crate_count": "• 已连接%d个板条箱 •",
-  "message.basicstorage.station.no_matching_crates": "• 未连接板条箱 •"
+  "message.basicstorage.station.no_matching_crates": "• 未连接板条箱 •",
+  "message.basicstorage.station.items_consolidated": "• 物品已整合 •",
+  "message.basicstorage.station.no_items_to_consolidate": "• 无物品可整合 •"
 }

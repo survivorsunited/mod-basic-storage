@@ -33,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Right Click
@@ -83,7 +84,28 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
       int inserted = 0;
 
       if (player.isSneaking()) {
-        inserted = depositInventory(player, cdbe);
+        if (playerStack.isEmpty()) {
+          // Consolidate items when sneaking with empty hand
+          boolean consolidated = consolidateItems(cdbe);
+          if (!world.isClient()) {
+            if (consolidated) {
+              player.sendMessage(
+                  Text.translatable("message.basicstorage.station.items_consolidated").withColor(0x99FF99),
+                  true);
+              world.playSound(null, pos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
+              state.updateNeighbors(world, pos, 1);
+              cdbe.markDirty();
+              world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+            } else {
+              player.sendMessage(
+                  Text.translatable("message.basicstorage.station.no_items_to_consolidate").withColor(0xFF9999),
+                  true);
+            }
+          }
+          return consolidated ? ActionResult.SUCCESS : ActionResult.PASS;
+        } else {
+          inserted = depositInventory(player, cdbe);
+        }
       } else if (!player.isSneaking()) {
         if (playerStack.isEmpty()) {
           if (!world.isClient())
@@ -186,6 +208,101 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
       }
     }
     return inserted;
+  }
+
+  /**
+   * Consolidates items of the same type across all connected crates.
+   * Items are moved to the crate with the most items of that type.
+   * 
+   * @param cdbe The crate station block entity
+   * @return true if any consolidation occurred, false otherwise
+   */
+  private static boolean consolidateItems(CrateStationBlockEntity cdbe) {
+    World world = cdbe.getWorld();
+    if (world == null || world.isClient)
+      return false;
+
+    Map<ItemVariant, List<BlockPos>> crateRegistry = cdbe.getCrateRegistry();
+    if (crateRegistry.isEmpty())
+      return false;
+
+    boolean consolidated = false;
+
+    // Process each item variant type
+    for (Map.Entry<ItemVariant, List<BlockPos>> entry : crateRegistry.entrySet()) {
+      ItemVariant variant = entry.getKey();
+      List<BlockPos> cratePositions = new ArrayList<>(entry.getValue());
+
+      if (cratePositions.size() <= 1)
+        continue; // Only one crate with this item type, nothing to consolidate
+
+      // Find the crate with the most items (target crate)
+      BlockPos targetCratePos = null;
+      long maxAmount = 0;
+
+      for (BlockPos pos : cratePositions) {
+        BlockEntity be = world.getBlockEntity(pos);
+        if (!(be instanceof CrateBlockEntity crate))
+          continue;
+
+        long amount = crate.storage.getAmount();
+        if (amount > maxAmount) {
+          maxAmount = amount;
+          targetCratePos = pos;
+        }
+      }
+
+      if (targetCratePos == null)
+        continue;
+
+      BlockEntity targetBE = world.getBlockEntity(targetCratePos);
+      if (!(targetBE instanceof CrateBlockEntity targetCrate))
+        continue;
+
+      // Transfer items from all other crates to the target crate
+      for (BlockPos sourcePos : cratePositions) {
+        if (sourcePos.equals(targetCratePos))
+          continue; // Skip the target crate itself
+
+        BlockEntity sourceBE = world.getBlockEntity(sourcePos);
+        if (!(sourceBE instanceof CrateBlockEntity sourceCrate))
+          continue;
+
+        if (sourceCrate.storage.isBlank())
+          continue;
+
+        // Transfer all items from source to target
+        try (Transaction transaction = Transaction.openOuter()) {
+          long availableSpace = targetCrate.storage.getCapacity() - targetCrate.storage.getAmount();
+          if (availableSpace <= 0)
+            break; // Target crate is full
+
+          long amountToTransfer = Math.min(sourceCrate.storage.getAmount(), availableSpace);
+          if (amountToTransfer <= 0)
+            continue;
+
+          long extracted = sourceCrate.storage.extract(variant, amountToTransfer, transaction);
+          if (extracted > 0) {
+            long inserted = targetCrate.storage.insert(variant, extracted, transaction);
+            if (inserted == extracted) {
+              transaction.commit();
+              sourceCrate.refresh();
+              targetCrate.refresh();
+              consolidated = true;
+            } else {
+              transaction.abort();
+            }
+          }
+        }
+      }
+    }
+
+    // Force cache update after consolidation
+    if (consolidated) {
+      cdbe.markCacheForUpdate();
+    }
+
+    return consolidated;
   }
 
   @Nullable
