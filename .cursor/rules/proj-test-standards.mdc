@@ -1,0 +1,339 @@
+---
+alwaysApply: true
+---
+
+# Test Standards for Custom Portals Mod
+
+## CRITICAL RULES - NO EXCEPTIONS
+
+### Test Scripts MUST:
+1. **ONLY contain test logic** - NO setup, NO duplication, NO helper functions
+2. **ONLY call existing scripts** - Use `build.ps1`, `scripts/start-server.ps1`, etc.
+3. **ALL output to logs** - Every message, error, status MUST be logged
+4. **Precise and minimal** - Only code needed to test ONE specific feature
+5. **Zero duplication** - If logic exists elsewhere, CALL IT, don't copy it
+
+### Test Scripts MUST NOT:
+- ❌ Contain server setup/download logic (use `build.ps1 -StartServer`)
+- ❌ Contain build logic (use `build.ps1`)
+- ❌ Contain server startup logic (use `scripts/start-server.ps1`)
+- ❌ Duplicate any existing script functionality
+- ❌ Have helper functions or complex logic
+- ❌ Output to console without logging
+
+## Test Directory Structure
+```
+tests/
+├── 001-validate-server-startup.ps1      # Test server startup and world loading
+├── 002-portal-creation.ps1              # Test portal creation (future)
+├── 003-portal-teleport.ps1              # Test portal teleportation (future)
+├── test-output/                         # Test output artifacts (gitignored)
+│   ├── 001-validate-server-startup/     # Isolated folder for test 001
+│   │   ├── {version}-{timestamp}.log
+│   │   └── {version}-{timestamp}-server.log
+│   ├── 002-portal-creation/             # Isolated folder for test 002
+│   └── 003-portal-teleport/             # Isolated folder for test 003
+└── README.md                             # Test documentation
+```
+
+## Test Script Naming Convention - CRITICAL
+- Format: `###-test-name.ps1`
+- Numbers: MUST be unique, sequential, NEVER reused
+  - First test: `001-test-name.ps1`
+  - Second test: `002-test-name.ps1`
+  - Third test: `003-test-name.ps1`
+  - **NEVER reuse a number that was used before**
+  - **NEVER have duplicate numbers**
+  - **Each test gets a NEW unique sequential number**
+- Name: Descriptive kebab-case name for ONE specific test
+- Extension: `.ps1` (PowerShell)
+- **Example**: If test 001 exists, next test MUST be 002, not 001 again
+
+## Test Script Structure - MINIMAL AND PRECISE
+
+```powershell
+# Test Name: Brief description
+# Purpose: Tests ONE specific feature/behavior
+# Expected: What should happen
+# Failure: What indicates failure
+
+param(
+    [string]$MinecraftVersion = "1.21.8",
+    [int]$TimeoutSeconds = 180
+)
+
+$ErrorActionPreference = "Stop"
+$TestName = "###-test-name"
+
+# Setup logging FIRST
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent $scriptPath
+$resultsDir = Join-Path $scriptPath "results"
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$logFile = Join-Path $resultsDir "$TestName-${MinecraftVersion}-${timestamp}.log"
+
+# Setup isolated output folder
+$testOutputDir = Join-Path $scriptPath "test-output" $TestName
+New-Item -ItemType Directory -Path $testOutputDir -Force | Out-Null
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$logFile = Join-Path $testOutputDir "${MinecraftVersion}-${timestamp}.log"
+
+function Write-TestLog {
+    param([string]$Message, [string]$Color = "White")
+    $ts = Get-Date -Format "HH:mm:ss"
+    $msg = "[$ts] $Message"
+    Write-Host $msg -ForegroundColor $Color
+    Add-Content -Path $logFile -Value $msg
+}
+
+Set-Location $projectRoot
+
+# Step 1: Build (use existing script)
+Write-TestLog "Building mod..." "Yellow"
+.\build.ps1 -MinecraftVersion $MinecraftVersion 2>&1 | Add-Content -Path $logFile
+if ($LASTEXITCODE -ne 0) { Write-TestLog "BUILD FAILED" "Red"; exit 1 }
+
+# Step 2: Setup server (use existing script)
+Write-TestLog "Setting up server..." "Yellow"
+.\build.ps1 -StartServer -MinecraftVersion $MinecraftVersion 2>&1 | Add-Content -Path $logFile
+# (stop before server starts - implementation detail)
+
+# Step 3: Start server (use existing script)
+Write-TestLog "Starting server..." "Yellow"
+Push-Location "test-server"
+Start-Job -ScriptBlock { & "..\scripts\start-server.ps1" } | Out-Null
+# Monitor logs from scripts/start-server.ps1
+
+# Step 4: Validate (ONLY test logic here)
+# - Check logs for success indicators
+# - Check logs for error patterns
+# - Verify expected behavior
+
+# Step 5: Results (log everything)
+# Copy artifacts to isolated test output folder
+# All files go to: tests/test-output/{test-name}/
+
+Write-TestLog "Result: PASSED/FAILED" "Green/Red"
+exit 0 or 1
+```
+
+## Test Execution Requirements
+
+### Required Test Scripts
+1. **001-start-server.ps1** - **MANDATORY**
+   - Tests: Server starts, world loads, no errors
+   - Uses: `build.ps1`, `scripts/start-server.ps1`
+   - Validates: Log patterns for success/failure
+   - Must pass before deployment
+
+### Test Validation Requirements
+Each test MUST validate:
+1. ✅ Feature works as expected
+2. ✅ No errors in logs
+3. ✅ No crashes or failures
+4. ✅ Expected behavior observed
+
+### Logging Requirements - MANDATORY
+**EVERY test script MUST:**
+- Create log file in `tests/results/` with timestamp
+- Log ALL output: messages, errors, status, results
+- Log file format: `{test-name}-{version}-{timestamp}.log`
+- Copy relevant server logs to results directory
+- Never output to console without logging
+
+**Log Function Pattern:**
+```powershell
+function Write-TestLog {
+    param([string]$Message, [string]$Color = "White")
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $logMessage = "[$timestamp] $Message"
+    Write-Host $logMessage -ForegroundColor $Color
+    Add-Content -Path $logFile -Value $logMessage
+}
+```
+
+### Exit Codes
+- **0**: Test passed
+- **1**: Test failed
+- **2**: Test error/exception
+
+### Output Format - LOGGED
+```
+[HH:mm:ss] TEST: {test-name}
+[HH:mm:ss] Building mod...
+[HH:mm:ss] ✅ Build successful
+[HH:mm:ss] Starting server...
+[HH:mm:ss] ✅ Server started
+[HH:mm:ss] ✅ Test PASSED
+```
+
+## Test Execution in Pipeline
+
+### GitHub Actions Integration
+Tests MUST be executed in the CI/CD pipeline:
+- **After Build**: Run tests after build completes
+- **Per Version**: Test each Minecraft version
+- **Fail Fast**: Pipeline fails if any test fails
+- **Logs Artifacts**: Upload test logs as artifacts
+
+### Pipeline Test Command
+```yaml
+- name: Run Tests
+  shell: pwsh
+  run: |
+    pwsh -File tests/001-start-server.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
+  continue-on-error: false
+  
+- name: Upload Test Logs
+  uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: test-logs-${{ matrix.mc_version }}
+    path: tests/results/*.log
+```
+
+## Reuse Requirements - NO DUPLICATION
+
+### Must Use Existing Scripts
+- **build.ps1** - For building mod
+- **build.ps1 -StartServer** - For server setup
+- **scripts/start-server.ps1** - For server startup
+- **NO NEW SCRIPTS** - If you need something, use what exists
+
+### What Tests Should Contain
+✅ Test-specific logic only
+✅ Logging setup
+✅ Call existing scripts
+✅ Monitor and validate
+✅ Report results
+
+### What Tests Should NOT Contain
+❌ Build logic
+❌ Server download logic
+❌ Server setup logic
+❌ Server startup logic
+❌ Helper functions
+❌ Complex conditionals
+❌ Duplicate code from other scripts
+
+## Logging Standards - MANDATORY
+
+### Log File Requirements
+- **Location**: `tests/test-output/{test-name}/`
+- **Isolated Folders**: Each test gets its own subfolder to prevent overlap
+- **Format**: `{version}-{timestamp}.log` (inside test's folder)
+- **Content**: ALL output, errors, status messages
+- **Server Logs**: Copy relevant logs to test's isolated output folder
+- **NO Overlap**: Each test's artifacts are completely isolated
+
+### Log Structure
+```
+[HH:mm:ss] TEST: {test-name}
+[HH:mm:ss] Step 1: {action}
+[HH:mm:ss] ✅ Success message
+[HH:mm:ss] Step 2: {action}
+[HH:mm:ss] ❌ Error message
+[HH:mm:ss] Result: PASSED/FAILED
+```
+
+### No Console-Only Output
+- **ALL** Write-Host must also log to file
+- **ALL** errors must be logged
+- **ALL** status must be logged
+- Console output is for user feedback only
+- Logs are for tracking and debugging
+
+## Test Documentation
+
+### README.md Requirements
+- List all tests and what they test
+- Document execution instructions
+- Include troubleshooting guide
+- Reference log file locations
+
+## Pipeline Integration Standards
+
+### Pre-Build Tests
+- Compilation validation
+- Code quality checks
+- Dependency verification
+
+### Post-Build Tests
+- Server startup test (001-start-server.ps1) - **REQUIRED**
+- World loading validation
+- Mod functionality tests
+
+### Release Tests
+- All pre-build tests
+- All post-build tests
+- Multi-version testing (1.21.5-1.21.10)
+- Cross-platform validation
+
+## Test Environment
+
+### Required Setup
+- Java 21 installed
+- PowerShell 7+ available
+- Server scripts in `scripts/` folder
+- Build artifacts in `build/libs/`
+
+### Test Isolation
+- Each test uses isolated server instance
+- Tests clean up after execution
+- No test dependencies on other tests
+
+## Continuous Integration
+
+### When Tests Run
+1. **On every push**: Run smoke tests (001-start-server.ps1)
+2. **On pull requests**: Run full test suite
+3. **Before release**: Run all tests on all versions
+4. **Nightly**: Run extended test suite
+
+### Test Failure Handling
+- Pipeline stops on first test failure
+- Test results reported to PR/commit
+- Logs attached for debugging
+- Notify maintainers on failure
+
+## Best Practices
+
+### Test Development
+- ✅ Test ONE feature per script
+- ✅ Use existing scripts - NEVER duplicate
+- ✅ Log EVERYTHING - no exceptions
+- ✅ Keep tests minimal and precise
+- ✅ Clear pass/fail criteria
+
+### Test Maintenance
+- ✅ Remove obsolete tests
+- ✅ Update when features change
+- ✅ Review logs regularly
+- ✅ Keep tests simple
+
+### Test Debugging
+- ✅ Check log files in `tests/results/`
+- ✅ Review server logs on failure
+- ✅ Look for error patterns
+- ✅ Verify script calls are correct
+
+## Code Quality Rules
+
+### Test Scripts Must Be:
+- **Minimal**: Only test logic, nothing else
+- **Reusable**: Use existing scripts
+- **Logged**: All output to logs
+- **Precise**: One test = one feature
+- **Clean**: No duplication, no helpers
+
+### Code Review Checklist
+- [ ] No duplicated logic from other scripts
+- [ ] All output logged to file
+- [ ] Uses existing scripts (build.ps1, scripts/*)
+- [ ] Tests ONE specific feature
+- [ ] Clear pass/fail criteria
+- [ ] Proper exit codes
+- [ ] **Isolated output folder created: tests/test-output/{test-name}/**
+- [ ] **All artifacts in isolated folder (no overlap between tests)**
+- [ ] **Unique test number (no duplicates, no reused numbers)**
+- [ ] **File name matches test number and purpose**
