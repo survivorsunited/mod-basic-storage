@@ -68,15 +68,18 @@ jobs:
           $props = Get-Content gradle.properties -Raw
           if ($props -match 'mod_version=([^\r\n]+)') {
               $fullVersion = $Matches[1].Trim()
+              Write-Host "Full version from gradle.properties: $fullVersion"
               # Extract version without Minecraft version suffix (e.g., 1.1.7+1.21.8 -> 1.1.7)
-              if ($fullVersion -match '^([\d.]+)') {
+              # Pattern matches: digits.digits.digits (e.g., 1.1.7)
+              if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
                   $version = $Matches[1]
-                  Write-Host "version=$version" >> $env:GITHUB_OUTPUT
-                  Write-Host "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+                  "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   Write-Host "Extracted version: $version (full: $fullVersion)"
               } else {
-                  Write-Host "version=$fullVersion" >> $env:GITHUB_OUTPUT
-                  Write-Host "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+                  # Fallback: use full version if pattern doesn't match
+                  "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   Write-Host "Using full version: $fullVersion"
               }
           } else {
@@ -84,13 +87,17 @@ jobs:
               exit 1
           }
       - name: check if tag exists
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.version.outcome == 'success' }}
         id: tag_check
         run: |
           TAG="${{ steps.version.outputs.version }}"
+          if [ -z "$TAG" ]; then
+            echo "ERROR: Version tag is empty"
+            exit 1
+          fi
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists"
+            echo "Tag $TAG already exists, skipping release"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "Tag $TAG does not exist, will create release"
