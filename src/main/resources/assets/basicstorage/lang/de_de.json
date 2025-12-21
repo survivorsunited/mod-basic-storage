@@ -9,5 +9,7 @@
   "message.basicstorage.station.connected_crate_count": "• %d Kisten Verbunden •",
   "message.basicstorage.station.no_matching_crates": "• Keine Passenden Kisten •",
   "message.basicstorage.station.items_consolidated": "• Gegenstände Konsolidiert •",
-  "message.basicstorage.station.no_items_to_consolidate": "• Keine Gegenstände Zu Konsolidieren •"
+  "message.basicstorage.station.no_items_to_consolidate": "• Keine Gegenstände Zu Konsolidieren •",
+  "message.basicstorage.crate.transfer_incompatible": "• Inkompatible Gegenstandstypen •",
+  "message.basicstorage.crate.transfer_full": "• Kiste Voll •"
 }
