@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: validate gradle wrapper
         uses: gradle/wrapper-validation-action@v2
       - name: setup jdk ${{ matrix.java }}
@@ -57,3 +60,69 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
+      - name: extract version from gradle.properties
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}
+        shell: pwsh
+        id: version
+        run: |
+          $props = Get-Content gradle.properties -Raw
+          if ($props -match 'mod_version=([^\r\n]+)') {
+              $fullVersion = $Matches[1].Trim()
+              # Extract version without Minecraft version suffix (e.g., 1.1.7+1.21.8 -> 1.1.7)
+              if ($fullVersion -match '^([\d.]+)') {
+                  $version = $Matches[1]
+                  Write-Host "version=$version" >> $env:GITHUB_OUTPUT
+                  Write-Host "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+                  Write-Host "Extracted version: $version (full: $fullVersion)"
+              } else {
+                  Write-Host "version=$fullVersion" >> $env:GITHUB_OUTPUT
+                  Write-Host "full_version=$fullVersion" >> $env:GITHUB_OUTPUT
+                  Write-Host "Using full version: $fullVersion"
+              }
+          } else {
+              Write-Host "ERROR: Could not extract version from gradle.properties"
+              exit 1
+          }
+      - name: check if tag exists
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}
+        id: tag_check
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist, will create release"
+          fi
+      - name: create git tag
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+      - name: create GitHub release
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Basic Storage ${{ steps.version.outputs.version }}
+            
+            Built for Minecraft ${{ matrix.mc_version }}
+            
+            ### Changes
+            - See commit history for details
+            
+            ### Installation
+            1. Download the JAR file below
+            2. Place it in your `mods` folder
+            3. Requires Fabric Loader and Fabric API
+          files: |
+            build/libs/basicstorage-*.jar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
