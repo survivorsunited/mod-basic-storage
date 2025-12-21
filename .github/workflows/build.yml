@@ -14,6 +14,10 @@ jobs:
         java: [
           21,    # Current Java LTS
         ]
+        # Use these Minecraft versions for testing
+        mc_version: [
+          "1.21.8",
+        ]
     runs-on: ubuntu-22.04
     steps:
       - name: checkout repository
@@ -25,10 +29,28 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'microsoft'
+      - name: install PowerShell Core
+        uses: microsoft/setup-powershell@v1
+        with:
+          pwsh-version: 'latest'
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: run version bump test
+        shell: pwsh
+        run: |
+          pwsh -File tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
+        continue-on-error: false
+      - name: upload test logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs-${{ matrix.mc_version }}-java${{ matrix.java }}
+          path: |
+            tests/test-output/**/*.log
+            tests/results/*.log
+          retention-days: 7
       - name: capture build artifacts
         if: ${{ matrix.java == '21' }} # Only upload artifacts built from latest java
         uses: actions/upload-artifact@v4

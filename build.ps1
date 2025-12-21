@@ -12,12 +12,14 @@ if (-not $projectRoot) {
     $projectRoot = Get-Location
 }
 
-# Set JAVA_HOME if not set
+# Set JAVA_HOME if not set (Windows-specific path)
 if (-not $env:JAVA_HOME) {
-    $javaHome = "C:\data\apps\#dev\jdk\jdk-21.0.7"
-    if (Test-Path $javaHome) {
-        $env:JAVA_HOME = $javaHome
-        Write-Host "JAVA_HOME set to $javaHome" -ForegroundColor Cyan
+    if ($IsWindows -or $env:OS -eq "Windows_NT") {
+        $javaHome = "C:\data\apps\#dev\jdk\jdk-21.0.7"
+        if (Test-Path $javaHome) {
+            $env:JAVA_HOME = $javaHome
+            Write-Host "JAVA_HOME set to $javaHome" -ForegroundColor Cyan
+        }
     }
 }
 
@@ -90,11 +92,18 @@ if ($needsUpdate) {
     Write-Host "Updated gradle.properties for Minecraft $MinecraftVersion" -ForegroundColor Green
 }
 
+# Determine gradle wrapper command (cross-platform)
+$gradlew = if ($IsWindows -or $env:OS -eq "Windows_NT") {
+    ".\gradlew.bat"
+} else {
+    "./gradlew"
+}
+
 # Clean if requested
 if ($Clean) {
     Write-Host "Cleaning build..." -ForegroundColor Yellow
     Push-Location $projectRoot
-    .\gradlew.bat clean 2>&1 | Out-Host
+    & $gradlew clean 2>&1 | Out-Host
     Pop-Location
 }
 
@@ -103,14 +112,14 @@ Write-Host "Building mod for Minecraft $MinecraftVersion..." -ForegroundColor Cy
 Push-Location $projectRoot
 
 try {
-    $buildOutput = .\gradlew.bat build --no-daemon 2>&1 | Out-String
+    $buildOutput = & $gradlew build --no-daemon 2>&1 | Out-String
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Build successful!" -ForegroundColor Green
         
         # Find the built JAR
-        $jarPattern = "build\libs\basicstorage-*-$MinecraftVersion.jar"
-        $jars = Get-ChildItem -Path (Join-Path $projectRoot "build\libs") -Filter "basicstorage-*-$MinecraftVersion.jar" -ErrorAction SilentlyContinue
+        $libsPath = Join-Path $projectRoot "build" "libs"
+        $jars = Get-ChildItem -Path $libsPath -Filter "basicstorage-*-$MinecraftVersion.jar" -ErrorAction SilentlyContinue
         
         if ($jars) {
             $latestJar = $jars | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -118,7 +127,7 @@ try {
             
             if ($StartServer) {
                 Write-Host "Starting server..." -ForegroundColor Cyan
-                & (Join-Path $projectRoot "scripts\start-server.ps1") -MinecraftVersion $MinecraftVersion
+                & (Join-Path $projectRoot "scripts" "start-server.ps1") -MinecraftVersion $MinecraftVersion
             }
         }
     } else {
