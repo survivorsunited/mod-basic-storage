@@ -28,6 +28,32 @@ pwsh -File tests/001-start-server.ps1 -MinecraftVersion "1.21.8"
 - ❌ "ExceptionInInitializerError"
 - ❌ "NullPointerException.*Block id"
 
+### 002-version-bump.ps1
+**Purpose**: Tests that build.ps1 automatically increments the mod version on each build  
+**Validates**: 
+- Version increments correctly (X.Y.Z → X.Y.(Z+1))
+- gradle.properties is updated with new version
+- JAR files are created with correct version numbers
+- Version bumping works on consecutive builds
+
+**Usage**:
+```powershell
+pwsh -File tests/002-version-bump.ps1 -MinecraftVersion "1.21.8"
+```
+
+**Expected Results**:
+- ✅ Initial version read from gradle.properties
+- ✅ First build increments version correctly
+- ✅ Second build increments version again
+- ✅ JAR files created with correct versions
+- ✅ Original version restored after test
+
+**Failure Indicators**:
+- ❌ Version does not increment
+- ❌ Version increment logic fails
+- ❌ Build fails during version bump
+- ❌ JAR files not created with correct versions
+
 ## Version Comparison: 1.21.5 vs 1.21.8
 
 ### Working Version (1.21.5) - Built for Minecraft 1.21.5
