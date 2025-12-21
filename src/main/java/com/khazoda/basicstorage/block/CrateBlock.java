@@ -1,14 +1,17 @@
 package com.khazoda.basicstorage.block;
 
+import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.ItemRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
+import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.khazoda.basicstorage.util.BlockUtils;
 import com.khazoda.basicstorage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
@@ -21,6 +24,7 @@ import net.minecraft.block.MapColor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.block.piston.PistonBehavior;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -86,6 +90,84 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   /**
+   * Event hook for left-click (attack) to handle pulling items from crates
+   */
+  public static void initOnAttackMethod() {
+    AttackBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockPos pos, Direction direction) -> {
+      if (!world.getBlockState(pos).isOf(BlockRegistry.CRATE_BLOCK))
+        return ActionResult.PASS;
+      if (!player.canModifyBlocks() || player.isSpectator())
+        return ActionResult.PASS;
+
+      BlockState state = world.getBlockState(pos);
+      BlockEntity be = world.getBlockEntity(pos);
+      Direction facing = state.get(Properties.HORIZONTAL_FACING);
+
+      if (be == null)
+        return ActionResult.PASS;
+      if (facing != direction)
+        return ActionResult.PASS;
+
+      CrateBlockEntity cbe = (CrateBlockEntity) be;
+      ItemStack playerStack = player.getMainHandStack();
+      if (playerStack.isOf(ItemRegistry.CRATE_HAMMER_ITEM))
+        return ActionResult.PASS;
+
+      // Manual crate transfer: Pull items (Shift+Sneak+Left Click)
+      if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+        // Shift+Sneak+Left Click: Transfer from clicked crate to held crate
+        // Split stack FIRST if needed, then transfer to the single crate
+        boolean inventoryWasFull = false;
+        if (playerStack.getCount() > 1) {
+          // Split the stack: keep 1 in hand, put rest in inventory
+          ItemStack restOfStack = playerStack.copy();
+          restOfStack.setCount(playerStack.getCount() - 1);
+          playerStack.setCount(1);
+          
+          // Update player's hand immediately with the single crate
+          player.setStackInHand(hand, playerStack);
+          
+          // Try to add rest of stack to inventory
+          if (!player.getInventory().insertStack(restOfStack)) {
+            // Inventory full, drop the rest
+            inventoryWasFull = true;
+            ItemEntity itemEntity = new ItemEntity(
+                world, player.getX(), player.getY(), player.getZ(), restOfStack);
+            itemEntity.setPickupDelay(40);
+            world.spawnEntity(itemEntity);
+          }
+        }
+        
+        // Now get the updated stack (should be count 1 after potential split)
+        ItemStack singleCrateStack = player.getStackInHand(hand);
+        BlockHitResult hit = new BlockHitResult(
+            net.minecraft.util.math.Vec3d.ofCenter(pos), direction, pos, false);
+        ActionResult transferResult = handleManualCrateTransfer(player, singleCrateStack, cbe, false, world, pos, state);
+        
+        if (transferResult == ActionResult.SUCCESS) {
+          // Transfer was successful
+          if (inventoryWasFull) {
+            // Inventory was full when we split, so drop the filled crate
+            ItemStack filledCrate = player.getStackInHand(hand);
+            if (!filledCrate.isEmpty()) {
+              player.setStackInHand(hand, ItemStack.EMPTY);
+              ItemEntity itemEntity = new ItemEntity(
+                  world, player.getX(), player.getY(), player.getZ(), filledCrate);
+              itemEntity.setPickupDelay(40);
+              world.spawnEntity(itemEntity);
+            }
+          }
+          return ActionResult.SUCCESS; // Prevent block breaking
+        } else if (transferResult != ActionResult.PASS) {
+          return ActionResult.SUCCESS; // Prevent block breaking
+        }
+      }
+
+      return ActionResult.PASS;
+    });
+  }
+
+  /**
    * Event hook instead of onUse() method in order to capture interactions while
    * sneaking
    */
@@ -118,6 +200,99 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
       // Todo: Enable for debugging
       // if (playerStack.isOf(net.minecraft.item.Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot);
+
+      // Manual crate transfer: Push items (Shift+Sneak+Right Click)
+      if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+        // Shift+Sneak+Right Click: Transfer from held crate(s) to clicked crate
+        // Process each crate in the stack one by one
+        int stackCount = playerStack.getCount();
+        boolean anyTransfer = false;
+        
+        for (int i = 0; i < stackCount; i++) {
+          // Get current stack state (may have been modified by previous iterations)
+          ItemStack currentCrateStack = player.getStackInHand(hand);
+          if (currentCrateStack.isEmpty() || !currentCrateStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+            break; // No more crates to process
+          }
+          
+          // Check if clicked crate is full before processing
+          if (cbe.storage.getAmount() >= cbe.storage.getCapacity()) {
+            break; // Clicked crate is full, stop processing
+          }
+          
+          // Create a single crate stack for processing (copy the first crate's data)
+          ItemStack singleCrateStack = currentCrateStack.copy();
+          singleCrateStack.setCount(1);
+          
+          // Check if this crate has items to transfer
+          var originalContents = singleCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+          boolean wasEmpty = (originalContents == null || originalContents.item().isBlank() || originalContents.count() == 0);
+          
+          if (wasEmpty) {
+            // Skip empty crates - remove one from stack and continue
+            currentCrateStack.decrement(1);
+            if (currentCrateStack.isEmpty()) {
+              player.setStackInHand(hand, ItemStack.EMPTY);
+              break;
+            } else {
+              player.setStackInHand(hand, currentCrateStack);
+            }
+            continue;
+          }
+          
+          // Try to push items from this crate
+          ActionResult transferResult = handleManualCrateTransfer(player, singleCrateStack, cbe, true, world, pos, state);
+          
+          if (transferResult == ActionResult.CONSUME) {
+            // Transfer happened
+            anyTransfer = true;
+            
+            // Check if this crate is now empty
+            var newContents = singleCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+            boolean isEmpty = (newContents == null || newContents.item().isBlank() || newContents.count() == 0);
+            
+            if (isEmpty) {
+              // Crate is now empty, remove one crate from the stack
+              currentCrateStack.decrement(1);
+              if (currentCrateStack.isEmpty()) {
+                player.setStackInHand(hand, ItemStack.EMPTY);
+                break; // Stack is empty, stop processing
+              } else {
+                player.setStackInHand(hand, currentCrateStack);
+              }
+            } else {
+              // Crate still has items - need to update it
+              if (currentCrateStack.getCount() == 1) {
+                // Only one crate, update it directly
+                player.setStackInHand(hand, singleCrateStack);
+                break; // Done processing
+              } else {
+                // Multiple crates: remove one from stack, then add updated crate back to inventory
+                currentCrateStack.decrement(1);
+                player.setStackInHand(hand, currentCrateStack);
+                
+                // Try to add the updated crate back to inventory or drop it
+                if (!player.getInventory().insertStack(singleCrateStack)) {
+                  // Inventory full, drop the updated crate
+                  ItemEntity itemEntity = new ItemEntity(
+                      world, player.getX(), player.getY(), player.getZ(), singleCrateStack);
+                  itemEntity.setPickupDelay(40);
+                  world.spawnEntity(itemEntity);
+                }
+                // Continue processing next crate in the stack
+              }
+            }
+          } else if (transferResult == ActionResult.FAIL) {
+            // Incompatible items or other failure - stop processing this stack
+            break;
+          }
+        }
+        
+        if (anyTransfer) {
+          return ActionResult.CONSUME;
+        }
+        // If no transfer happened, fall through to normal behavior
+      }
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
@@ -203,6 +378,157 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   /**
+   * Handles manual crate transfer when holding a crate item and clicking another crate.
+   * Shift+Sneak+Left Click: Transfer from clicked crate to held crate (pull)
+   * Shift+Sneak+Right Click: Transfer from held crate to clicked crate (push)
+   * 
+   * @param player The player performing the transfer
+   * @param heldCrateStack The crate item stack being held
+   * @param clickedCrate The crate block entity being clicked
+   * @param isPush True for push (right-click), false for pull (left-click)
+   * @param world The world
+   * @param pos The position of the clicked crate
+   * @param state The block state
+   * @return ActionResult indicating success or failure
+   */
+  private static ActionResult handleManualCrateTransfer(PlayerEntity player, ItemStack heldCrateStack, 
+                                                         CrateBlockEntity clickedCrate, boolean isPush,
+                                                         World world, BlockPos pos, BlockState state) {
+    if (world.isClient())
+      return ActionResult.PASS;
+    
+    // Get contents of held crate
+    var heldContents = heldCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+    if (heldContents == null) {
+      heldContents = CrateSlotComponent.DEFAULT;
+    }
+
+    ItemVariant heldItem = heldContents.item();
+    long heldAmount = heldContents.count();
+    boolean heldEmpty = heldItem.isBlank() || heldAmount == 0;
+
+    // Get contents of clicked crate
+    ItemVariant clickedItem = clickedCrate.storage.getResource();
+    long clickedAmount = clickedCrate.storage.getAmount();
+    boolean clickedEmpty = clickedCrate.storage.isBlank();
+
+    // Validate compatibility: same item type or one side is empty
+    if (!heldEmpty && !clickedEmpty && !heldItem.equals(clickedItem)) {
+      // Different item types and neither is empty - cannot transfer
+      if (!world.isClient()) {
+        player.sendMessage(
+            Text.translatable("message.basicstorage.crate.transfer_incompatible").withColor(0xFF9999),
+            true);
+        world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundCategory.BLOCKS, 1.1f, 1f);
+      }
+      return ActionResult.CONSUME;
+    }
+
+    // Determine which item type to use
+    ItemVariant transferItem = heldEmpty ? clickedItem : heldItem;
+    if (transferItem.isBlank()) {
+      // Both crates are empty
+      return ActionResult.PASS;
+    }
+
+    long transferred = 0;
+
+    if (isPush) {
+      // Shift+Sneak+Right Click: Transfer from held crate to clicked crate
+      if (heldEmpty) {
+        return ActionResult.PASS; // Nothing to transfer
+      }
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        long availableSpace = clickedCrate.storage.getCapacity() - clickedCrate.storage.getAmount();
+        long amountToTransfer = Math.min(heldAmount, availableSpace);
+        
+        if (amountToTransfer > 0) {
+          long inserted = clickedCrate.storage.insert(heldItem, amountToTransfer, transaction);
+          if (inserted > 0) {
+            transaction.commit();
+            transferred = inserted;
+            
+            // Update held crate item
+            long newHeldAmount = heldAmount - transferred;
+            if (newHeldAmount > 0) {
+              heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, 
+                  new CrateSlotComponent(heldItem, (int) newHeldAmount));
+            } else {
+              heldCrateStack.remove(DataComponentRegistry.CRATE_CONTENTS);
+            }
+            
+            clickedCrate.refresh();
+          } else {
+            transaction.abort();
+          }
+        }
+      }
+    } else {
+      // Shift+Sneak+Left Click: Transfer from clicked crate to held crate
+      if (clickedEmpty) {
+        return ActionResult.PASS; // Nothing to transfer
+      }
+
+      // Calculate available space in held crate
+      // Note: Stack splitting happens BEFORE this function is called, so heldCrateStack should be count 1
+      long heldCapacity = Constants.CRATE_MAX_COUNT;
+      long heldCurrentAmount = heldEmpty ? 0 : heldAmount;
+      long availableSpace = heldCapacity - heldCurrentAmount;
+
+      if (availableSpace <= 0) {
+        // Held crate is full
+        if (!world.isClient()) {
+          player.sendMessage(
+              Text.translatable("message.basicstorage.crate.transfer_full").withColor(0xFF9999),
+              true);
+          world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundCategory.BLOCKS, 1.1f, 1f);
+        }
+        return ActionResult.CONSUME;
+      }
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        long amountToTransfer = Math.min(clickedAmount, availableSpace);
+        long extracted = clickedCrate.storage.extract(clickedItem, amountToTransfer, transaction);
+        
+        if (extracted > 0) {
+          transaction.commit();
+          transferred = extracted;
+          
+          // Update held crate item
+          long newHeldAmount = heldCurrentAmount + transferred;
+          heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, 
+              new CrateSlotComponent(clickedItem, (int) newHeldAmount));
+          
+          clickedCrate.refresh();
+        } else {
+          // Transfer failed
+          transaction.abort();
+        }
+      }
+    }
+
+    if (transferred > 0) {
+      // Success feedback
+      if (!world.isClient()) {
+        if (transferred == 1) {
+          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 1f, 1.05f);
+        } else if (transferred <= 64) {
+          world.playSound(null, pos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
+        } else {
+          world.playSound(null, pos, SoundRegistry.HANDLE_LOADS, SoundCategory.BLOCKS, 1f, 1.05f);
+        }
+        state.updateNeighbors(world, pos, 1);
+        world.updateComparators(pos, state.getBlock());
+        world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+      }
+      return ActionResult.SUCCESS;
+    }
+
+    return ActionResult.PASS;
+  }
+
+  /**
    * UseBlockCallback helper method
    **/
   /* Add blacklisted items to this method */
@@ -234,6 +560,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
     if (!player.canModifyBlocks())
       return;
+
+    // Skip normal extraction if player is doing manual crate transfer
+    ItemStack playerStack = player.getMainHandStack();
+    if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+      return; // Manual transfer is handled by AttackBlockCallback
+    }
 
     CrateBlockEntity cbe = (CrateBlockEntity) world.getBlockEntity(pos);
     if (cbe == null)
@@ -368,6 +700,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   /**
    * Debugging Methods, not for survival gameplay use
    */
+
   private static ActionResult debugInitOnUseMethod(PlayerEntity player, CrateSlot slot) {
     try (Transaction t = Transaction.openOuter()) {
       if (slot.isBlank())
