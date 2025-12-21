@@ -40,7 +40,7 @@ jobs:
       - name: run version bump test
         shell: pwsh
         run: |
-          pwsh -File tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
+          ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
         continue-on-error: false
       - name: upload test logs
         uses: actions/upload-artifact@v4
