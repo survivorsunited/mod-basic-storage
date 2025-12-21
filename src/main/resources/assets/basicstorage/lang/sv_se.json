@@ -9,5 +9,7 @@
   "message.basicstorage.station.connected_crate_count": "%d Lådor Kopplade",
   "message.basicstorage.station.no_matching_crates": "Inga Liknande Lådor",
   "message.basicstorage.station.items_consolidated": "• Föremål Konsoliderade •",
-  "message.basicstorage.station.no_items_to_consolidate": "• Inga Föremål Att Konsolidera •"
+  "message.basicstorage.station.no_items_to_consolidate": "• Inga Föremål Att Konsolidera •",
+  "message.basicstorage.crate.transfer_incompatible": "• Inkompatibla Föremålstyper •",
+  "message.basicstorage.crate.transfer_full": "• Låda Full •"
 }
