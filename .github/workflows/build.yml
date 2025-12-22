@@ -87,13 +87,13 @@ jobs:
               # Pattern matches: digits.digits.digits (e.g., 1.1.7)
               if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
                   $version = $Matches[1]
-                  "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 -NoNewline
-                  "`nfull_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 -NoNewline
+                  "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   Write-Host "✅ Extracted version: $version (full: $fullVersion)"
               } else {
                   # Fallback: use full version if pattern doesn't match
-                  "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 -NoNewline
-                  "`nfull_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8 -NoNewline
+                  "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   Write-Host "⚠️ Using full version (pattern didn't match): $fullVersion"
               }
           } else {
