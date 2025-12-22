@@ -40,6 +40,7 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+        id: build_step
       - name: run version bump test
         shell: pwsh
         run: |
