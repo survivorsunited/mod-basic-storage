@@ -168,13 +168,25 @@ jobs:
           
           echo "✅ JAR files found, proceeding with release"
           find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar"
+      - name: debug release conditions
+        if: ${{ matrix.java == '21' && github.event_name == 'push' }}
+        run: |
+          echo "🔍 Release step debugging:"
+          echo "  version.outcome: ${{ steps.version.outcome }}"
+          echo "  version.outputs.version: ${{ steps.version.outputs.version }}"
+          echo "  tag_check.outcome: ${{ steps.tag_check.outcome }}"
+          echo "  tag_check.outputs.exists: ${{ steps.tag_check.outputs.exists }}"
+          echo "  verify_jar.outcome: ${{ steps.verify_jar.outcome }}"
+          echo "  Should create tag: ${{ steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}"
       - name: create git tag
         if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
         run: |
+          echo "🚀 Creating git tag: ${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
           git push origin "${{ steps.version.outputs.version }}"
+          echo "✅ Tag pushed successfully"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create GitHub release
