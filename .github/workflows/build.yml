@@ -96,7 +96,6 @@ jobs:
           
           $props = Get-Content gradle.properties -Raw
           Write-Host "gradle.properties size: $($props.Length) characters"
-          Write-Host "gradle.properties preview: $($props.Substring(0, [Math]::Min(300, $props.Length)))"
           
           if ($props -match 'mod_version=([^\r\n]+)') {
               $fullVersion = $Matches[1].Trim()
@@ -115,12 +114,13 @@ jobs:
               }
           } else {
               Write-Host "❌ ERROR: Could not find mod_version in gradle.properties"
-              Write-Host "Full content:"
-              Write-Host $props
               exit 1
           }
           
           Write-Host "✅ Version extraction complete!"
+          Write-Host "Output file: $env:GITHUB_OUTPUT"
+          Write-Host "Output contents:"
+          Get-Content $env:GITHUB_OUTPUT -ErrorAction SilentlyContinue | Write-Host
       - name: check if tag exists
         if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.version.outcome == 'success' }}
         id: tag_check
