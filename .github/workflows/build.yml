@@ -134,8 +134,14 @@ jobs:
       - name: list JAR files for release
         if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
         run: |
-          echo "JAR files in build/libs:"
-          ls -la build/libs/*.jar || echo "No JAR files found"
+          echo "📦 JAR files in build/libs:"
+          ls -la build/libs/ || echo "build/libs directory not found"
+          echo ""
+          echo "📦 All JAR files:"
+          find build/libs -name "*.jar" -type f || echo "No JAR files found"
+          echo ""
+          echo "📦 BasicStorage JAR files:"
+          find build/libs -name "basicstorage-*.jar" -type f || echo "No basicstorage JAR files found"
       - name: create GitHub release
         if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
         uses: softprops/action-gh-release@v1
@@ -156,6 +162,8 @@ jobs:
             3. Requires Fabric Loader and Fabric API
           files: |
             build/libs/basicstorage-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
           draft: false
           prerelease: false
         env:
