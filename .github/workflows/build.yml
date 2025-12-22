@@ -54,13 +54,14 @@ jobs:
           echo "  Branch: ${{ github.ref_name }}"
           echo "  Java version: ${{ matrix.java }}"
           echo "  MC version: ${{ matrix.mc_version }}"
-          echo "  Should run release: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}"
+          echo "  Should run release: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') }}"
           echo ""
           echo "🔍 Condition breakdown:"
           echo "  matrix.java == '21': ${{ matrix.java == '21' }}"
           echo "  github.event_name == 'push': ${{ github.event_name == 'push' }}"
           echo "  github.ref == 'refs/heads/1.21.8': ${{ github.ref == 'refs/heads/1.21.8' }}"
-          echo "  Combined: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}"
+          echo "  github.ref_name == '1.21.8': ${{ github.ref_name == '1.21.8' }}"
+          echo "  Combined: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') }}"
       - name: upload test logs
         uses: actions/upload-artifact@v4
         if: always()
