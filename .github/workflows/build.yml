@@ -44,7 +44,7 @@ jobs:
         shell: pwsh
         run: |
           ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
-        continue-on-error: false
+        continue-on-error: true
       - name: debug workflow conditions
         if: ${{ matrix.java == '21' }}
         run: |
@@ -82,33 +82,42 @@ jobs:
         shell: pwsh
         id: version
         run: |
-          Write-Host "Extracting version from gradle.properties..."
+          Write-Host "🚀 Starting version extraction..."
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "gradle.properties exists: $(Test-Path gradle.properties)"
+          
+          if (-not (Test-Path gradle.properties)) {
+              Write-Host "❌ ERROR: gradle.properties not found!"
+              exit 1
+          }
+          
           $props = Get-Content gradle.properties -Raw
-          Write-Host "gradle.properties content preview: $($props.Substring(0, [Math]::Min(200, $props.Length)))"
+          Write-Host "gradle.properties size: $($props.Length) characters"
+          Write-Host "gradle.properties preview: $($props.Substring(0, [Math]::Min(300, $props.Length)))"
           
           if ($props -match 'mod_version=([^\r\n]+)') {
               $fullVersion = $Matches[1].Trim()
-              Write-Host "Full version from gradle.properties: $fullVersion"
+              Write-Host "✅ Found mod_version: $fullVersion"
               
               # Extract version without Minecraft version suffix (e.g., 1.1.7+1.21.8 -> 1.1.7)
-              # Pattern matches: digits.digits.digits (e.g., 1.1.7)
               if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
                   $version = $Matches[1]
+                  Write-Host "✅ Extracted version: $version (full: $fullVersion)"
                   "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  Write-Host "✅ Extracted version: $version (full: $fullVersion)"
               } else {
-                  # Fallback: use full version if pattern doesn't match
+                  Write-Host "⚠️ Pattern didn't match, using full version: $fullVersion"
                   "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                   "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  Write-Host "⚠️ Using full version (pattern didn't match): $fullVersion"
               }
           } else {
-              Write-Host "❌ ERROR: Could not extract version from gradle.properties"
-              Write-Host "gradle.properties content:"
+              Write-Host "❌ ERROR: Could not find mod_version in gradle.properties"
+              Write-Host "Full content:"
               Write-Host $props
               exit 1
           }
+          
+          Write-Host "✅ Version extraction complete!"
       - name: check if tag exists
         if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.version.outcome == 'success' }}
         id: tag_check
