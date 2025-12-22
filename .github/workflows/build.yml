@@ -131,19 +131,35 @@ jobs:
           git push origin "${{ steps.version.outputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: list JAR files for release
+      - name: verify JAR files exist
         if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
+        id: verify_jar
         run: |
-          echo "📦 JAR files in build/libs:"
-          ls -la build/libs/ || echo "build/libs directory not found"
+          echo "📦 Checking for JAR files in build/libs:"
+          if [ ! -d "build/libs" ]; then
+            echo "❌ ERROR: build/libs directory does not exist"
+            exit 1
+          fi
+          
+          echo "📦 All files in build/libs:"
+          ls -la build/libs/ || true
+          
           echo ""
-          echo "📦 All JAR files:"
-          find build/libs -name "*.jar" -type f || echo "No JAR files found"
-          echo ""
-          echo "📦 BasicStorage JAR files:"
-          find build/libs -name "basicstorage-*.jar" -type f || echo "No basicstorage JAR files found"
+          echo "📦 Looking for basicstorage JAR files:"
+          JAR_COUNT=$(find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar" | wc -l)
+          echo "Found $JAR_COUNT JAR file(s)"
+          
+          if [ "$JAR_COUNT" -eq "0" ]; then
+            echo "❌ ERROR: No basicstorage JAR files found"
+            echo "Available files:"
+            ls -la build/libs/ || true
+            exit 1
+          fi
+          
+          echo "✅ JAR files found, proceeding with release"
+          find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar"
       - name: create GitHub release
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -162,8 +178,6 @@ jobs:
             3. Requires Fabric Loader and Fabric API
           files: |
             build/libs/basicstorage-*.jar
-            !build/libs/*-sources.jar
-            !build/libs/*-dev.jar
           draft: false
           prerelease: false
         env:
