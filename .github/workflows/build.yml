@@ -19,9 +19,6 @@ jobs:
           "1.21.8",
         ]
     runs-on: ubuntu-22.04
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      should_release: ${{ steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false' }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
