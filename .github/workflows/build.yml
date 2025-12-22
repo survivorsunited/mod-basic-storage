@@ -77,7 +77,7 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: extract version from gradle.properties
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') }}
         shell: pwsh
         id: version
         run: |
@@ -109,7 +109,7 @@ jobs:
               exit 1
           }
       - name: check if tag exists
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.version.outcome == 'success' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.version.outcome == 'success' }}
         id: tag_check
         run: |
           TAG="${{ steps.version.outputs.version }}"
@@ -129,7 +129,7 @@ jobs:
             echo "✅ Tag $TAG does not exist, will create release"
           fi
       - name: create git tag
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -138,7 +138,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: verify JAR files exist
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
         id: verify_jar
         run: |
           echo "📦 Checking for JAR files in build/libs:"
@@ -165,7 +165,7 @@ jobs:
           echo "✅ JAR files found, proceeding with release"
           find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar"
       - name: create GitHub release
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
