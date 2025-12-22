@@ -45,6 +45,16 @@ jobs:
         run: |
           ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
         continue-on-error: false
+      - name: restore version after test
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}
+        shell: pwsh
+        run: |
+          # The version bump test restores the version, but let's make sure we have the right one
+          $props = Get-Content gradle.properties -Raw
+          if ($props -match 'mod_version=([^\r\n]+)') {
+              $version = $Matches[1].Trim()
+              Write-Host "Current version in gradle.properties: $version"
+          }
       - name: upload test logs
         uses: actions/upload-artifact@v4
         if: always()
@@ -65,25 +75,31 @@ jobs:
         shell: pwsh
         id: version
         run: |
+          Write-Host "Extracting version from gradle.properties..."
           $props = Get-Content gradle.properties -Raw
+          Write-Host "gradle.properties content preview: $($props.Substring(0, [Math]::Min(200, $props.Length)))"
+          
           if ($props -match 'mod_version=([^\r\n]+)') {
               $fullVersion = $Matches[1].Trim()
               Write-Host "Full version from gradle.properties: $fullVersion"
+              
               # Extract version without Minecraft version suffix (e.g., 1.1.7+1.21.8 -> 1.1.7)
               # Pattern matches: digits.digits.digits (e.g., 1.1.7)
               if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
                   $version = $Matches[1]
-                  "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  Write-Host "Extracted version: $version (full: $fullVersion)"
+                  Write-Host "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  Write-Host "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  Write-Host "✅ Extracted version: $version (full: $fullVersion)"
               } else {
                   # Fallback: use full version if pattern doesn't match
-                  "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  Write-Host "Using full version: $fullVersion"
+                  Write-Host "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  Write-Host "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  Write-Host "⚠️ Using full version (pattern didn't match): $fullVersion"
               }
           } else {
-              Write-Host "ERROR: Could not extract version from gradle.properties"
+              Write-Host "❌ ERROR: Could not extract version from gradle.properties"
+              Write-Host "gradle.properties content:"
+              Write-Host $props
               exit 1
           }
       - name: check if tag exists
@@ -91,16 +107,20 @@ jobs:
         id: tag_check
         run: |
           TAG="${{ steps.version.outputs.version }}"
+          echo "Checking if tag exists: $TAG"
           if [ -z "$TAG" ]; then
-            echo "ERROR: Version tag is empty"
+            echo "❌ ERROR: Version tag is empty"
+            echo "Version step outputs:"
+            echo "  version: ${{ steps.version.outputs.version }}"
+            echo "  full_version: ${{ steps.version.outputs.full_version }}"
             exit 1
           fi
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists, skipping release"
+            echo "✅ Tag $TAG already exists, skipping release"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist, will create release"
+            echo "✅ Tag $TAG does not exist, will create release"
           fi
       - name: create git tag
         if: ${{ matrix.java == '21' && github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
