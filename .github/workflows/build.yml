@@ -19,6 +19,9 @@ jobs:
           "1.21.8",
         ]
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false' }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
@@ -138,15 +141,6 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "✅ Tag $TAG does not exist, will create release"
           fi
-      - name: create git tag
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: verify JAR files exist
         if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
         id: verify_jar
@@ -174,6 +168,15 @@ jobs:
           
           echo "✅ JAR files found, proceeding with release"
           find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar"
+      - name: create git tag
+        if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create GitHub release
         if: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
         uses: softprops/action-gh-release@v1
