@@ -38,9 +38,10 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
-      - name: create release
+      - name: extract version
         if: github.event_name == 'push'
         shell: pwsh
+        id: version
         run: |
           $props = Get-Content gradle.properties -Raw
           if ($props -match 'mod_version=([^\r\n]+)') {
@@ -50,28 +51,39 @@ jobs:
               } else {
                   $ver = $full
               }
-              
-              if (git rev-parse "$ver" 2>&1) {
-                  Write-Host "Tag $ver exists, skipping"
-                  exit 0
-              }
-              
-              $jars = Get-ChildItem build/libs -Filter "basicstorage-*.jar" -Exclude "*-sources.jar","*-dev.jar"
-              if ($jars.Count -eq 0) {
-                  Write-Host "No JAR files found"
-                  exit 1
-              }
-              
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git tag -a "$ver" -m "Release $ver"
-              git push origin "$ver"
-              
-              $body = "## Basic Storage $ver`n`nBuilt for Minecraft ${{ matrix.mc_version }}"
-              gh release create "$ver" --title "Release $ver" --notes "$body" $jars[0].FullName
+              "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              Write-Host "Version: $ver"
           } else {
               Write-Host "Could not extract version"
               exit 1
           }
+      - name: check tag
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
+        id: tag_check
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      - name: create tag
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: create release
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Basic Storage ${{ steps.version.outputs.version }}
+            Built for Minecraft ${{ matrix.mc_version }}
+          files: build/libs/basicstorage-*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
