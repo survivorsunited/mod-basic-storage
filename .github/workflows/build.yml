@@ -27,6 +27,7 @@ jobs:
       - uses: microsoft/setup-powershell@v1
       - run: chmod +x ./gradlew
       - name: build
+        id: build_step
         run: ./gradlew build
       - name: run version bump test
         shell: pwsh
@@ -44,7 +45,7 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: extract version
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.build_step.outcome == 'success'
         shell: pwsh
         id: version
         run: |
