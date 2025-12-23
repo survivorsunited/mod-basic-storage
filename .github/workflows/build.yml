@@ -10,14 +10,8 @@ jobs:
   build:
     strategy:
       matrix:
-        # Use these Java versions
-        java: [
-          21,    # Current Java LTS
-        ]
-        # Use these Minecraft versions for testing
-        mc_version: [
-          "1.21.8",
-        ]
+        java: [21]
+        mc_version: ["1.21.8"]
     runs-on: ubuntu-22.04
     steps:
       - name: checkout repository
@@ -40,29 +34,11 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
-        id: build_step
       - name: run version bump test
         shell: pwsh
         run: |
           ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
         continue-on-error: true
-      - name: debug workflow conditions
-        if: ${{ matrix.java == '21' }}
-        run: |
-          echo "🔍 Debugging workflow conditions:"
-          echo "  Event name: ${{ github.event_name }}"
-          echo "  Ref: ${{ github.ref }}"
-          echo "  Branch: ${{ github.ref_name }}"
-          echo "  Java version: ${{ matrix.java }}"
-          echo "  MC version: ${{ matrix.mc_version }}"
-          echo "  Should run release: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') }}"
-          echo ""
-          echo "🔍 Condition breakdown:"
-          echo "  matrix.java == '21': ${{ matrix.java == '21' }}"
-          echo "  github.event_name == 'push': ${{ github.event_name == 'push' }}"
-          echo "  github.ref == 'refs/heads/1.21.8': ${{ github.ref == 'refs/heads/1.21.8' }}"
-          echo "  github.ref_name == '1.21.8': ${{ github.ref_name == '1.21.8' }}"
-          echo "  Combined: ${{ matrix.java == '21' && github.event_name == 'push' && (github.ref == 'refs/heads/1.21.8' || github.ref_name == '1.21.8') }}"
       - name: upload test logs
         uses: actions/upload-artifact@v4
         if: always()
@@ -73,141 +49,71 @@ jobs:
             tests/results/*.log
           retention-days: 7
       - name: capture build artifacts
-        if: ${{ matrix.java == '21' }} # Only upload artifacts built from latest java
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: build/libs/
-      - name: extract version from gradle.properties
-        if: ${{ matrix.java == '21' && github.event_name == 'push' }}
+      - name: extract version and create release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/1.21.8'
         shell: pwsh
-        id: version
         run: |
-          Write-Host "🚀 Starting version extraction..."
-          Write-Host "Current directory: $(Get-Location)"
-          Write-Host "gradle.properties exists: $(Test-Path gradle.properties)"
+          Write-Host "🚀 Starting release process..."
           
-          if (-not (Test-Path gradle.properties)) {
-              Write-Host "❌ ERROR: gradle.properties not found!"
-              exit 1
-          }
-          
+          # Extract version
           $props = Get-Content gradle.properties -Raw
-          Write-Host "gradle.properties size: $($props.Length) characters"
-          
           if ($props -match 'mod_version=([^\r\n]+)') {
               $fullVersion = $Matches[1].Trim()
-              Write-Host "✅ Found mod_version: $fullVersion"
-              
-              # Extract version without Minecraft version suffix (e.g., 1.1.7+1.21.8 -> 1.1.7)
               if ($fullVersion -match '^(\d+\.\d+\.\d+)') {
                   $version = $Matches[1]
-                  Write-Host "✅ Extracted version: $version (full: $fullVersion)"
-                  "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
               } else {
-                  Write-Host "⚠️ Pattern didn't match, using full version: $fullVersion"
-                  "version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-                  "full_version=$fullVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+                  $version = $fullVersion
               }
+              Write-Host "Version: $version"
           } else {
-              Write-Host "❌ ERROR: Could not find mod_version in gradle.properties"
+              Write-Host "❌ ERROR: Could not extract version"
               exit 1
           }
           
-          Write-Host "✅ Version extraction complete!"
-          Write-Host "Output file: $env:GITHUB_OUTPUT"
-          Write-Host "Output contents:"
-          Get-Content $env:GITHUB_OUTPUT -ErrorAction SilentlyContinue | Write-Host
-      - name: check if tag exists
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.version.outcome == 'success' }}
-        id: tag_check
-        run: |
-          TAG="${{ steps.version.outputs.version }}"
-          echo "Checking if tag exists: $TAG"
-          if [ -z "$TAG" ]; then
-            echo "❌ ERROR: Version tag is empty"
-            echo "Version step outputs:"
-            echo "  version: ${{ steps.version.outputs.version }}"
-            echo "  full_version: ${{ steps.version.outputs.full_version }}"
-            exit 1
-          fi
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Tag $TAG already exists, skipping release"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "✅ Tag $TAG does not exist, will create release"
-          fi
-      - name: verify JAR files exist
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' }}
-        id: verify_jar
-        run: |
-          echo "📦 Checking for JAR files in build/libs:"
-          if [ ! -d "build/libs" ]; then
-            echo "❌ ERROR: build/libs directory does not exist"
-            exit 1
-          fi
+          # Check if tag exists
+          $tagExists = git rev-parse "$version" 2>&1
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ Tag $version already exists, skipping release"
+              exit 0
+          }
           
-          echo "📦 All files in build/libs:"
-          ls -la build/libs/ || true
+          # Verify JAR exists
+          $jarFiles = Get-ChildItem -Path "build/libs" -Filter "basicstorage-*.jar" -Exclude "*-sources.jar", "*-dev.jar"
+          if ($jarFiles.Count -eq 0) {
+              Write-Host "❌ ERROR: No JAR files found"
+              exit 1
+          }
+          Write-Host "✅ Found $($jarFiles.Count) JAR file(s)"
           
-          echo ""
-          echo "📦 Looking for basicstorage JAR files:"
-          JAR_COUNT=$(find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar" | wc -l)
-          echo "Found $JAR_COUNT JAR file(s)"
-          
-          if [ "$JAR_COUNT" -eq "0" ]; then
-            echo "❌ ERROR: No basicstorage JAR files found"
-            echo "Available files:"
-            ls -la build/libs/ || true
-            exit 1
-          fi
-          
-          echo "✅ JAR files found, proceeding with release"
-          find build/libs -name "basicstorage-*.jar" -type f ! -name "*-sources.jar" ! -name "*-dev.jar"
-      - name: debug release conditions
-        if: ${{ matrix.java == '21' && github.event_name == 'push' }}
-        run: |
-          echo "🔍 Release step debugging:"
-          echo "  version.outcome: ${{ steps.version.outcome }}"
-          echo "  version.outputs.version: ${{ steps.version.outputs.version }}"
-          echo "  tag_check.outcome: ${{ steps.tag_check.outcome }}"
-          echo "  tag_check.outputs.exists: ${{ steps.tag_check.outputs.exists }}"
-          echo "  verify_jar.outcome: ${{ steps.verify_jar.outcome }}"
-          echo "  Should create tag: ${{ steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}"
-      - name: create git tag
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
-        run: |
-          echo "🚀 Creating git tag: ${{ steps.version.outputs.version }}"
+          # Create tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
-          echo "✅ Tag pushed successfully"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: create GitHub release
-        if: ${{ matrix.java == '21' && github.event_name == 'push' && steps.tag_check.outputs.exists == 'false' && steps.version.outcome == 'success' && steps.verify_jar.outcome == 'success' }}
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          body: |
-            ## Basic Storage ${{ steps.version.outputs.version }}
-            
-            Built for Minecraft ${{ matrix.mc_version }}
-            
-            ### Changes
-            - See commit history for details
-            
-            ### Installation
-            1. Download the JAR file below
-            2. Place it in your `mods` folder
-            3. Requires Fabric Loader and Fabric API
-          files: |
-            build/libs/basicstorage-*.jar
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git tag -a "$version" -m "Release $version"
+          git push origin "$version"
+          Write-Host "✅ Tag $version created and pushed"
+          
+          # Create release using GitHub CLI
+          $jarPath = $jarFiles[0].FullName
+          $jarName = $jarFiles[0].Name
+          Write-Host "Creating release with JAR: $jarName"
+          
+          $releaseBody = @"
+## Basic Storage $version
+
+Built for Minecraft ${{ matrix.mc_version }}
+
+### Changes
+- See commit history for details
+
+### Installation
+1. Download the JAR file below
+2. Place it in your `mods` folder
+3. Requires Fabric Loader and Fabric API
+"@
+          
+          gh release create "$version" --title "Release $version" --notes "$releaseBody" "$jarPath" --repo "${{ github.repository }}"
+          Write-Host "✅ Release $version created successfully"
