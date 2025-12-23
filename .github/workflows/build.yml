@@ -27,26 +27,7 @@ jobs:
       - uses: microsoft/setup-powershell@v1
       - run: chmod +x ./gradlew
       - name: build
-        id: build_step
         run: ./gradlew build
-      - name: verify build succeeded
-        if: always()
-        shell: pwsh
-        run: |
-          $buildOutcome = "${{ steps.build_step.outcome }}"
-          Write-Host "Build outcome: $buildOutcome"
-          if ($buildOutcome -ne 'success') {
-            Write-Host "ERROR: Build failed!" -ForegroundColor Red
-            exit 1
-          }
-          Write-Host "Build succeeded!" -ForegroundColor Green
-          if (Test-Path "build/libs") {
-            $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar"
-            Write-Host "JAR files found: $($jars.Count)"
-            $jars | ForEach-Object { Write-Host "  - $($_.Name)" }
-          } else {
-            Write-Host "WARNING: build/libs directory not found"
-          }
       - name: run version bump test
         shell: pwsh
         run: ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
@@ -63,99 +44,37 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: extract version
-        if: github.event_name == 'push' && steps.build_step.outcome == 'success'
+        if: github.event_name == 'push'
         shell: pwsh
         id: version
         run: |
-          Write-Host "=== EXTRACTING VERSION ==="
           $props = Get-Content gradle.properties -Raw
-          Write-Host "gradle.properties content: $props"
           if ($props -match 'mod_version=([^\r\n]+)') {
               $full = $Matches[1].Trim()
-              Write-Host "Full version string: $full"
               if ($full -match '^(\d+\.\d+\.\d+)') {
                   $ver = $Matches[1]
               } else {
                   $ver = $full
               }
-              Write-Host "Extracted version: $ver"
+              Write-Host "Version: $ver"
               "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              Write-Host "Version written to GITHUB_OUTPUT: $ver"
-              # Verify output was written
-              $output = Get-Content $env:GITHUB_OUTPUT -Raw
-              Write-Host "GITHUB_OUTPUT content: $output"
           } else {
-              Write-Host "ERROR: Could not extract version from gradle.properties"
+              Write-Host "ERROR: Could not extract version"
               exit 1
           }
-      - name: debug version output
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
-        shell: pwsh
-        run: |
-          Write-Host "=== DEBUG VERSION OUTPUT ==="
-          Write-Host "Version output: ${{ steps.version.outputs.version }}"
-          Write-Host "Version outcome: ${{ steps.version.outcome }}"
-      - name: check tag
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
-        id: tag_check
+      - name: check if tag exists
+        if: github.event_name == 'push'
         shell: bash
+        id: tag_check
         run: |
-          echo "=== CHECKING TAG ==="
           TAG="${{ steps.version.outputs.version }}"
-          echo "Checking for tag: $TAG"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag exists"
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "Tag does not exist"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-      - name: debug tag check
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
-        shell: pwsh
-        run: |
-          Write-Host "=== DEBUG TAG CHECK ==="
-          Write-Host "Tag exists: ${{ steps.tag_check.outputs.exists }}"
-          Write-Host "Tag check outcome: ${{ steps.tag_check.outcome }}"
-      - name: verify jar exists
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
-        shell: pwsh
-        run: |
-          Write-Host "=== VERIFYING JAR ==="
-          $jars = Get-ChildItem -Path "build/libs" -Filter "basicstorage-*.jar" -ErrorAction SilentlyContinue
-          if ($jars) {
-            Write-Host "Found JAR files:"
-            $jars | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length) bytes)" }
-          } else {
-            Write-Host "ERROR: No JAR files found in build/libs/"
-            exit 1
-          }
-      - name: create tag
-        id: create_tag
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
-        shell: bash
-        run: |
-          echo "=== CREATING TAG ==="
-          TAG="${{ steps.version.outputs.version }}"
-          echo "Creating tag: $TAG"
-          if [ -z "$TAG" ]; then
-            echo "ERROR: TAG is empty!"
-            exit 1
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          echo "Pushing tag to origin..."
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin "$TAG" || {
-            echo "ERROR: Failed to push tag"
-            exit 1
-          }
-          echo "Tag pushed successfully"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false' && steps.create_tag.outcome == 'success'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -164,7 +83,5 @@ jobs:
             ## Basic Storage ${{ steps.version.outputs.version }}
             Built for Minecraft ${{ matrix.mc_version }}
           files: build/libs/basicstorage-*.jar
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
