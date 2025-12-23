@@ -26,7 +26,25 @@ jobs:
           distribution: 'microsoft'
       - uses: microsoft/setup-powershell@v1
       - run: chmod +x ./gradlew
-      - run: ./gradlew build
+      - name: build
+        id: build_step
+        run: ./gradlew build
+      - name: verify build succeeded
+        if: always()
+        shell: pwsh
+        run: |
+          if (${{ steps.build_step.outcome }} -ne 'success') {
+            Write-Host "ERROR: Build failed!" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "Build succeeded!" -ForegroundColor Green
+          if (Test-Path "build/libs") {
+            $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar"
+            Write-Host "JAR files found: $($jars.Count)"
+            $jars | ForEach-Object { Write-Host "  - $($_.Name)" }
+          } else {
+            Write-Host "WARNING: build/libs directory not found"
+          }
       - name: run version bump test
         shell: pwsh
         run: ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
@@ -43,7 +61,7 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: extract version
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.build_step.outcome == 'success'
         shell: pwsh
         id: version
         run: |
@@ -60,7 +78,10 @@ jobs:
               }
               Write-Host "Extracted version: $ver"
               "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              Write-Host "Version written to GITHUB_OUTPUT"
+              Write-Host "Version written to GITHUB_OUTPUT: $ver"
+              # Verify output was written
+              $output = Get-Content $env:GITHUB_OUTPUT -Raw
+              Write-Host "GITHUB_OUTPUT content: $output"
           } else {
               Write-Host "ERROR: Could not extract version from gradle.properties"
               exit 1
@@ -108,20 +129,30 @@ jobs:
             exit 1
           }
       - name: create tag
+        id: create_tag
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
         shell: bash
         run: |
           echo "=== CREATING TAG ==="
           TAG="${{ steps.version.outputs.version }}"
           echo "Creating tag: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "ERROR: TAG is empty!"
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          echo "Pushing tag to origin..."
+          git push origin "$TAG" || {
+            echo "ERROR: Failed to push tag"
+            exit 1
+          }
+          echo "Tag pushed successfully"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false' && steps.create_tag.outcome == 'success'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -130,5 +161,7 @@ jobs:
             ## Basic Storage ${{ steps.version.outputs.version }}
             Built for Minecraft ${{ matrix.mc_version }}
           files: build/libs/basicstorage-*.jar
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
