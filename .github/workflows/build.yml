@@ -34,6 +34,12 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: debug branch and event
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Ref name: ${{ github.ref_name }}"
+          echo "Should release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' }}"
       - name: run version bump test
         shell: pwsh
         run: |
@@ -54,7 +60,7 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: extract version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/1.21.8'
+        if: github.event_name == 'push'
         shell: pwsh
         id: version
         run: |
@@ -73,7 +79,7 @@ jobs:
               exit 1
           }
       - name: check tag exists
-        if: github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.version.outcome == 'success'
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
         id: tag_check
         run: |
           TAG="${{ steps.version.outputs.version }}"
@@ -85,7 +91,7 @@ jobs:
             echo "Tag does not exist"
           fi
       - name: create tag and release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -94,7 +100,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create GitHub release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/1.21.8' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
