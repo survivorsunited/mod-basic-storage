@@ -47,36 +47,77 @@ jobs:
         shell: pwsh
         id: version
         run: |
+          Write-Host "=== EXTRACTING VERSION ==="
           $props = Get-Content gradle.properties -Raw
+          Write-Host "gradle.properties content: $props"
           if ($props -match 'mod_version=([^\r\n]+)') {
               $full = $Matches[1].Trim()
+              Write-Host "Full version string: $full"
               if ($full -match '^(\d+\.\d+\.\d+)') {
                   $ver = $Matches[1]
               } else {
                   $ver = $full
               }
+              Write-Host "Extracted version: $ver"
               "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              Write-Host "Version: $ver"
+              Write-Host "Version written to GITHUB_OUTPUT"
           } else {
-              Write-Host "Could not extract version"
+              Write-Host "ERROR: Could not extract version from gradle.properties"
               exit 1
           }
+      - name: debug version output
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
+        shell: pwsh
+        run: |
+          Write-Host "=== DEBUG VERSION OUTPUT ==="
+          Write-Host "Version output: ${{ steps.version.outputs.version }}"
+          Write-Host "Version outcome: ${{ steps.version.outcome }}"
       - name: check tag
         if: github.event_name == 'push' && steps.version.outcome == 'success'
         id: tag_check
+        shell: bash
         run: |
-          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "=== CHECKING TAG ==="
+          TAG="${{ steps.version.outputs.version }}"
+          echo "Checking for tag: $TAG"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag exists"
             echo "exists=true" >> $GITHUB_OUTPUT
           else
+            echo "Tag does not exist"
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
+      - name: debug tag check
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
+        shell: pwsh
+        run: |
+          Write-Host "=== DEBUG TAG CHECK ==="
+          Write-Host "Tag exists: ${{ steps.tag_check.outputs.exists }}"
+          Write-Host "Tag check outcome: ${{ steps.tag_check.outcome }}"
+      - name: verify jar exists
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          Write-Host "=== VERIFYING JAR ==="
+          $jars = Get-ChildItem -Path "build/libs" -Filter "basicstorage-*.jar" -ErrorAction SilentlyContinue
+          if ($jars) {
+            Write-Host "Found JAR files:"
+            $jars | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length) bytes)" }
+          } else {
+            Write-Host "ERROR: No JAR files found in build/libs/"
+            exit 1
+          }
       - name: create tag
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        shell: bash
         run: |
+          echo "=== CREATING TAG ==="
+          TAG="${{ steps.version.outputs.version }}"
+          echo "Creating tag: $TAG"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.version }}" -m "Release ${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create release
