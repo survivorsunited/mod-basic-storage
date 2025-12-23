@@ -64,35 +64,8 @@ jobs:
               Write-Host "ERROR: Could not extract version"
               exit 1
           }
-      - name: check if tag exists
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
-        shell: bash
-        id: tag_check
-        run: |
-          TAG="${{ steps.version.outputs.version }}"
-          git fetch origin --tags 2>&1 | true
-          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist"
-          fi
-      - name: create tag
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
-        shell: bash
-        run: |
-          TAG="${{ steps.version.outputs.version }}"
-          echo "Creating tag: $TAG"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin "$TAG"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.tag_check.outputs.exists == 'false'
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
