@@ -64,6 +64,23 @@ jobs:
               Write-Host "ERROR: Could not extract version"
               exit 1
           }
+      - name: list JAR files
+        if: github.event_name == 'push' && steps.version.outcome == 'success'
+        shell: pwsh
+        run: |
+          Write-Host "=== JAR FILES ==="
+          if (Test-Path "build/libs") {
+            $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar"
+            Write-Host "Found $($jars.Count) JAR files:"
+            $jars | ForEach-Object { Write-Host "  - $($_.FullName)" }
+            if ($jars.Count -eq 0) {
+              Write-Host "ERROR: No JAR files found!"
+              exit 1
+            }
+          } else {
+            Write-Host "ERROR: build/libs directory does not exist!"
+            exit 1
+          }
       - name: create release
         if: github.event_name == 'push' && steps.version.outcome == 'success'
         uses: softprops/action-gh-release@v1
@@ -73,6 +90,7 @@ jobs:
           body: |
             ## Basic Storage ${{ steps.version.outputs.version }}
             Built for Minecraft ${{ matrix.mc_version }}
-          files: build/libs/basicstorage-*.jar
+          files: |
+            build/libs/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
