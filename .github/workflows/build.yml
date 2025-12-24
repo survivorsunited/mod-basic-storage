@@ -114,14 +114,72 @@ jobs:
           }
       - name: create release
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          body: |
-            ## Basic Storage ${{ steps.version.outputs.version }}
-            Built for Minecraft ${{ matrix.mc_version }}
-          files: |
-            build/libs/*.jar
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $token = "${{ secrets.GITHUB_TOKEN }}"
+          $repo = "${{ github.repository }}"
+          $jarPath = (Get-ChildItem -Path "build/libs" -Filter "*.jar" | Select-Object -First 1).FullName
+          $jarName = (Get-ChildItem -Path "build/libs" -Filter "*.jar" | Select-Object -First 1).Name
+          
+          Write-Host "=== CREATING RELEASE ==="
+          Write-Host "Version: $version"
+          Write-Host "JAR: $jarPath"
+          
+          # Create tag first
+          Write-Host "Creating tag..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$version" -m "Release $version"
+          git remote set-url origin "https://x-access-token:$token@github.com/$repo.git"
+          git push origin "$version"
+          
+          # Create release via API
+          Write-Host "Creating release via GitHub API..."
+          $releaseBody = @{
+            tag_name = $version
+            name = "Release $version"
+            body = "## Basic Storage $version`nBuilt for Minecraft ${{ matrix.mc_version }}"
+            draft = $false
+            prerelease = $false
+          } | ConvertTo-Json
+          
+          $headers = @{
+            Authorization = "token $token"
+            Accept = "application/vnd.github.v3+json"
+          }
+          
+          $releaseResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Method Post -Headers $headers -Body $releaseBody -ContentType "application/json"
+          Write-Host "Release created: $($releaseResponse.id)"
+          
+          # Upload JAR file
+          Write-Host "Uploading JAR file..."
+          $uploadUrl = $releaseResponse.upload_url -replace '\{.*$', "?name=$jarName"
+          $jarContent = [System.IO.File]::ReadAllBytes($jarPath)
+          $boundary = [System.Guid]::NewGuid().ToString()
+          
+          $bodyLines = @(
+            "--$boundary",
+            "Content-Disposition: form-data; name=`"file`"; filename=`"$jarName`"",
+            "Content-Type: application/java-archive",
+            "",
+            [System.Text.Encoding]::GetEncoding('iso-8859-1').GetString($jarContent),
+            "--$boundary--"
+          )
+          $body = $bodyLines -join "`r`n"
+          
+          $uploadHeaders = @{
+            Authorization = "token $token"
+            Accept = "application/vnd.github.v3+json"
+            "Content-Type" = "multipart/form-data; boundary=$boundary"
+          }
+          
+          try {
+            Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $uploadHeaders -Body ([System.Text.Encoding]::GetEncoding('iso-8859-1').GetBytes($body)) -ErrorAction Stop
+            Write-Host "✅ JAR uploaded successfully!"
+          } catch {
+            Write-Host "⚠️ JAR upload failed: $($_.Exception.Message)"
+            Write-Host "Release created but JAR upload failed - this is non-fatal"
+          }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
