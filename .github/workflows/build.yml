@@ -45,11 +45,21 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
+      - name: debug workflow conditions
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "=== WORKFLOW DEBUG ==="
+          Write-Host "Event name: ${{ github.event_name }}"
+          Write-Host "Ref: ${{ github.ref }}"
+          Write-Host "Branch: ${{ github.ref_name }}"
+          Write-Host "Build outcome: ${{ steps.build_step.outcome }}"
       - name: extract version
         if: github.event_name == 'push' && steps.build_step.outcome == 'success'
         shell: pwsh
         id: version
         run: |
+          Write-Host "=== EXTRACTING VERSION ==="
           $props = Get-Content gradle.properties -Raw
           if ($props -match 'mod_version=([^\r\n]+)') {
               $full = $Matches[1].Trim()
@@ -58,12 +68,20 @@ jobs:
               } else {
                   $ver = $full
               }
-              Write-Host "Version: $ver"
+              Write-Host "Extracted version: $ver"
               "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              Write-Host "Version written to output"
           } else {
               Write-Host "ERROR: Could not extract version"
               exit 1
           }
+      - name: debug version step
+        if: always() && github.event_name == 'push'
+        shell: pwsh
+        run: |
+          Write-Host "=== VERSION STEP DEBUG ==="
+          Write-Host "Version step outcome: ${{ steps.version.outcome }}"
+          Write-Host "Version output: ${{ steps.version.outputs.version }}"
       - name: list JAR files
         if: github.event_name == 'push' && steps.version.outcome == 'success'
         shell: pwsh
@@ -81,8 +99,21 @@ jobs:
             Write-Host "ERROR: build/libs directory does not exist!"
             exit 1
           }
+      - name: debug release conditions
+        if: always() && github.event_name == 'push'
+        shell: pwsh
+        run: |
+          Write-Host "=== RELEASE CONDITIONS DEBUG ==="
+          Write-Host "Event name: ${{ github.event_name }}"
+          Write-Host "Version outcome: ${{ steps.version.outcome }}"
+          Write-Host "Version value: ${{ steps.version.outputs.version }}"
+          if ("${{ steps.version.outcome }}" -eq "success" -and "${{ steps.version.outputs.version }}" -ne "") {
+            Write-Host "✅ Conditions met for release"
+          } else {
+            Write-Host "❌ Conditions NOT met for release"
+          }
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
