@@ -112,8 +112,27 @@ jobs:
           } else {
             Write-Host "❌ Conditions NOT met for release"
           }
-      - name: create release
+      - name: create and push tag
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
+        shell: bash
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+          echo "Creating tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Check if tag already exists
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            git push origin "$TAG"
+            echo "Tag $TAG created and pushed"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: create release
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.create_and_push_tag.outcome == 'success'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -124,5 +143,7 @@ jobs:
           files: build/libs/*.jar
           generate_release_notes: false
           make_latest: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
