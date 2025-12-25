@@ -25,7 +25,7 @@ jobs:
         with:
           java-version: 21
           distribution: 'microsoft'
-      - uses: microsoft/setup-powershell@v1
+      - uses: PowerShell/setup-powershell@v1
       - run: chmod +x ./gradlew
       - name: build
         id: build_step
