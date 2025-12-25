@@ -1,0 +1,55 @@
+name: release
+on:
+  workflow_run:
+    workflows: ["build"]
+    types:
+      - completed
+    branches:
+      - 1.21.8
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Artifacts
+          path: build/libs/
+      - name: extract version
+        shell: pwsh
+        id: version
+        run: |
+          $props = Get-Content gradle.properties -Raw
+          if ($props -match 'mod_version=([^\r\n]+)') {
+              $full = $Matches[1].Trim()
+              if ($full -match '^(\d+\.\d+\.\d+)') {
+                  $ver = $Matches[1]
+              } else {
+                  $ver = $full
+              }
+              Write-Host "Version: $ver"
+              "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+              Write-Host "ERROR: Could not extract version"
+              exit 1
+          }
+      - name: create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Basic Storage ${{ steps.version.outputs.version }}
+            Built for Minecraft 1.21.8
+          files: build/libs/*.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
