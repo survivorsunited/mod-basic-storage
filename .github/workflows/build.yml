@@ -140,19 +140,37 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: create release
+      - name: install GitHub CLI
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
+        run: |
+          type -p curl >/dev/null || apt install curl -y
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          apt update
+          apt install gh -y
+      - name: create release with gh CLI
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          body: |
-            ## Basic Storage ${{ steps.version.outputs.version }}
-            Built for Minecraft ${{ matrix.mc_version }}
-          files: build/libs/*.jar
-          generate_release_notes: false
-          make_latest: true
-          draft: false
-          prerelease: false
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          JAR_FILE=$(ls build/libs/*.jar | head -n 1)
+          
+          echo "=== CREATING RELEASE WITH GH CLI ==="
+          echo "Version: $VERSION"
+          echo "JAR: $JAR_FILE"
+          
+          # Authenticate
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          
+          # Create release
+          gh release create "$VERSION" \
+            --title "Release $VERSION" \
+            --notes "## Basic Storage $VERSION
+          Built for Minecraft ${{ matrix.mc_version }}" \
+            "$JAR_FILE" \
+            --repo "${{ github.repository }}"
+          
+          echo "✅ Release created successfully!"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
