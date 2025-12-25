@@ -25,7 +25,7 @@ jobs:
         with:
           java-version: 21
           distribution: 'microsoft'
-      - uses: microsoft/setup-powershell@v1
+      - uses: actions/setup-powershell@v1
       - run: chmod +x ./gradlew
       - name: build
         id: build_step
@@ -142,7 +142,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: setup GitHub CLI
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
-        uses: cli/setup-gh@v3
+        uses: actions/setup-gh@v2
       - name: create release with gh CLI
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
         shell: bash
