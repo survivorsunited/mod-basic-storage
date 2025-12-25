@@ -140,8 +140,29 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: create release
+      - name: filter JAR files for release
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
+        shell: pwsh
+        id: filter_jars
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Write-Host "Filtering JAR files for version: $version"
+          $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar" | Where-Object { $_.Name -match "basicstorage-$version" }
+          if ($jars) {
+            $jarPaths = $jars | ForEach-Object { $_.FullName } | Sort-Object
+            Write-Host "Found matching JAR files:"
+            $jarPaths | ForEach-Object { Write-Host "  - $_" }
+            # Output as newline-separated list for the action
+            $jarList = $jarPaths -join "`n"
+            "files<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            $jarList | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            Write-Host "ERROR: No JAR files found matching version $version"
+            exit 1
+          }
+      - name: create release
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success' && steps.filter_jars.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
@@ -149,6 +170,6 @@ jobs:
           body: |
             ## Basic Storage ${{ steps.version.outputs.version }}
             Built for Minecraft ${{ matrix.mc_version }}
-          files: build/libs/*.jar
+          files: ${{ steps.filter_jars.outputs.files }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
