@@ -114,25 +114,34 @@ jobs:
           }
       - name: create and push tag
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
+        id: tag_step
         shell: bash
         run: |
           TAG="${{ steps.version.outputs.version }}"
           echo "Creating tag: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "ERROR: TAG is empty!"
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Fetch existing tags first
+          git fetch origin --tags 2>&1 || true
           # Check if tag already exists
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping"
+            echo "Tag $TAG already exists, skipping tag creation"
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
             git tag -a "$TAG" -m "Release $TAG"
             git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git push origin "$TAG"
             echo "Tag $TAG created and pushed"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.create_and_push_tag.outcome == 'success'
+        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
