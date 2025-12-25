@@ -140,15 +140,9 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: install GitHub CLI
+      - name: setup GitHub CLI
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
-        run: |
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          apt-get update
-          apt-get install -y gh
-          gh --version
+        uses: cli/setup-gh@v3
       - name: create release with gh CLI
         if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
         shell: bash
