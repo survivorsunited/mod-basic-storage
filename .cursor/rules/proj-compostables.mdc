@@ -1,0 +1,86 @@
+---
+alwaysApply: true
+---
+
+# Custom Portals Mod Specific Context
+
+## Mod Overview
+The Custom Portals mod allows players to construct inter- and intradimensional portals out of any block. Players can build custom portals, link them together, and travel between dimensions or within the same dimension.
+
+## Current Implementation
+
+### Main Features
+- Build portals from any block
+- Portal linking system based on color
+- Inter-dimensional and intra-dimensional travel
+- Rune system for portal enhancements:
+  - Haste Rune: Increases portal activation speed
+  - Gate Rune: Enables portal linking
+  - Weak/Strong Enhancer Runes: Increase portal range
+  - Infinity Rune: Enables unlimited range
+- Configurable portal system with various options
+
+### Portal System
+- **Portal Blocks**: Custom blocks that form the portal frame
+- **Portal Catalysts**: Items used to activate portals (colored by portal type)
+- **Rune Blocks**: Enhancement blocks that modify portal behavior
+- **Configuration**: Range limits, private portals, redstone control
+
+### Technical Implementation
+1. **Portal Storage**: Uses Cardinal Components API for world-level data persistence
+2. **Portal Logic**: Custom PortalBlock class handles activation, linking, and teleportation
+3. **Configuration**: YACL (Yet Another Config Lib) for user-friendly config UI
+4. **Networking**: Custom payloads for client-server communication
+
+## Project-Specific Details
+
+### Namespace
+- Mod ID: `customportals`
+- Java package: `dev.custom.portals`
+- Main class: `CustomPortals`
+- Client class: `CustomPortalsClient`
+- Maven group: `net.custom.portals`
+
+### Key Classes
+- `CustomPortals.java`: Main mod initialization and world component setup
+- `CustomPortalsClient.java`: Client-side initialization
+- `PortalBlock.java`: Core portal block logic and teleportation
+- `CustomPortal.java`: Portal data model
+- `WorldPortals.java`: World component for portal storage
+- `CPSettings.java`: Configuration management with YACL
+
+### Current Version
+- Mod version: 3.11.0+1.21.10
+- Minecraft: 1.21.10
+- Fabric Loader: 0.17.3+
+- Fabric API: 0.136.0+
+
+### Dependencies
+- Cardinal Components API: 7.2.0
+- YACL (Yet Another Config Lib): 3.8.0+
+- ModMenu: 16.0.0-rc.1+ (optional, recommended)
+
+## Development Notes
+- Portal linking is automatic based on color and range
+- Range can be configured or set to unlimited
+- Private portals restrict linking to portals built by the same player
+- Redstone control allows toggling portal activation
+- Portal data persists across world saves using Cardinal Components
+
+### Mixin Development Guidelines
+When working with mixins in this project:
+1. **Entity Mixins**: Handle teleportation and transition states
+2. **Client Mixins**: Modify HUD and loading screens
+3. **Server Mixins**: Handle server-side player behavior
+
+### Common Tasks
+- **Add new portal color**: Register new portal block and catalyst in registries
+- **Modify portal behavior**: Update PortalBlock.java logic
+- **Change configuration**: Update CPSettings.java with new options
+- **Add new rune type**: Create new rune block class extending AbstractRuneBlock
+
+### Important File Locations
+- Mixins: `src/main/java/dev/custom/portals/mixin/`
+- Mixin config: `src/main/resources/customportals.mixins.json`
+- Portal logic: `src/main/java/dev/custom/portals/blocks/PortalBlock.java`
+- Portal data: `src/main/java/dev/custom/portals/data/`

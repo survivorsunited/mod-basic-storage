@@ -1,0 +1,311 @@
+---
+alwaysApply: true
+---
+
+# GitHub Actions Pipeline Monitoring Standards
+
+## Overview
+Use GitHub CLI (`gh`) to monitor GitHub Actions workflows and ensure builds, tests, and releases complete successfully. Regular monitoring helps catch failures early and ensures the project remains in a working state.
+
+## Prerequisites
+1. **GitHub CLI Installation**: Install `gh` CLI from https://cli.github.com
+2. **Authentication**: Run `gh auth login` to authenticate with GitHub
+3. **Repository Access**: Ensure you have access to the repository
+
+## Core Monitoring Commands
+
+### List Recent Workflow Runs
+View recent workflow runs to see current status:
+```powershell
+# List recent runs for a specific workflow
+gh run list --workflow=build.yml --limit 5
+
+# List all recent runs across all workflows
+gh run list --limit 10
+
+# List runs with JSON output for scripting
+gh run list --workflow=build.yml --limit 5 --json databaseId,status,conclusion,displayTitle,headBranch
+```
+
+### View Specific Workflow Run
+Get detailed information about a specific run:
+```powershell
+# View latest run
+gh run view
+
+# View specific run by ID
+gh run view <run-id>
+
+# View with JSON output
+gh run view <run-id> --json status,conclusion,jobs
+
+# View all jobs in a run
+gh run view <run-id> --json jobs
+```
+
+### View Workflow Run Logs
+Get detailed logs from workflow runs:
+```powershell
+# View full logs for a run
+gh run view <run-id> --log
+
+# View logs for a specific job
+gh run view <run-id> --log --job=<job-id>
+
+# View logs and search for patterns
+gh run view <run-id> --log | Select-String -Pattern "error|failed|BUILD"
+```
+
+### View Job Details
+Inspect specific jobs within a workflow run:
+```powershell
+# Get job ID first
+gh run view <run-id> --json jobs --jq '.jobs[] | {id: .databaseId, name: .name, status: .status}'
+
+# View specific job
+gh run view --job=<job-id>
+
+# View job logs
+gh run view --job=<job-id> --log
+```
+
+## Common Monitoring Scenarios
+
+### Scenario 1: Check if Latest Build Succeeded
+Quick status check after pushing code:
+```powershell
+$run = gh run list --workflow=build.yml --limit 1 --json status,conclusion,displayTitle | ConvertFrom-Json
+if ($run.status -eq "completed" -and $run.conclusion -eq "success") {
+    Write-Host "✅ Build succeeded: $($run.displayTitle)" -ForegroundColor Green
+} else {
+    Write-Host "❌ Build status: $($run.status)/$($run.conclusion)" -ForegroundColor Red
+    gh run view $run.databaseId
+}
+```
+
+### Scenario 2: Monitor Release Workflow
+Check release workflow triggered by tag creation:
+```powershell
+# Find release run by tag
+$tagRun = gh run list --workflow=build.yml --event=create --limit 1 --json databaseId,status,conclusion,headBranch
+$run = $tagRun | ConvertFrom-Json
+Write-Host "Release run: $($run.headBranch) - Status: $($run.status)/$($run.conclusion)"
+
+# View release workflow details
+gh run view $run.databaseId
+```
+
+### Scenario 3: Find Failed Jobs and Steps
+Investigate failures in detail:
+```powershell
+$runId = (gh run list --workflow=build.yml --limit 1 --json databaseId -q '.[0].databaseId')
+$jobs = gh run view $runId --json jobs | ConvertFrom-Json
+
+$failedJobs = $jobs.jobs | Where-Object { $_.conclusion -eq "failure" }
+foreach ($job in $failedJobs) {
+    Write-Host "❌ Failed Job: $($job.name)" -ForegroundColor Red
+    $failedSteps = $job.steps | Where-Object { $_.conclusion -eq "failure" }
+    foreach ($step in $failedSteps) {
+        Write-Host "  Failed Step: $($step.name)" -ForegroundColor Yellow
+    }
+}
+```
+
+### Scenario 4: Watch Workflow Until Completion
+Monitor a workflow run in real-time:
+```powershell
+$runId = <run-id>
+$elapsed = 0
+$maxWait = 600  # 10 minutes
+
+while ($elapsed -lt $maxWait) {
+    $run = gh run view $runId --json status,conclusion,displayTitle | ConvertFrom-Json
+    $status = if ($run.status -eq "completed") { 
+        if ($run.conclusion -eq "success") { "✅ SUCCESS" } else { "❌ FAILED" }
+    } else { "🔄 RUNNING" }
+    
+    Write-Host "[$elapsed s] $status - $($run.displayTitle)"
+    
+    if ($run.status -eq "completed") {
+        exit $(if ($run.conclusion -eq "success") { 0 } else { 1 })
+    }
+    
+    Start-Sleep -Seconds 15
+    $elapsed += 15
+}
+```
+
+### Scenario 5: Check Specific Workflow Step Status
+Verify a specific step completed successfully:
+```powershell
+$runId = <run-id>
+$jobName = "release-manual"  # or "build-matrix (1.21.10)" etc.
+
+$jobs = gh run view $runId --json jobs | ConvertFrom-Json
+$job = $jobs.jobs | Where-Object { $_.name -eq $jobName }
+
+if ($job) {
+    $step = $job.steps | Where-Object { $_.name -eq "Extract properties from gradle.properties" }
+    if ($step) {
+        Write-Host "Step Status: $($step.conclusion)" -ForegroundColor $(if ($step.conclusion -eq "success") { "Green" } else { "Red" })
+    }
+}
+```
+
+## Using Project Scripts
+
+The project includes helper scripts for common monitoring tasks:
+
+### Check Pipeline Status
+```powershell
+.\scripts\check-pipeline-status.ps1 -Workflow build.yml -Limit 5
+```
+Shows recent pipeline runs with status indicators.
+
+### Watch Pipeline
+```powershell
+.\scripts\watch-pipeline.ps1 -Workflow build.yml -MaxWait 600
+```
+Monitors a workflow until completion with periodic status updates.
+
+### Get Pipeline Errors
+```powershell
+.\scripts\get-pipeline-errors.ps1
+```
+Lists failed jobs and steps from the latest workflow run.
+
+### Check Pipeline Logs
+```powershell
+.\scripts\check-pipeline-logs.ps1 [run-id]
+```
+Examines logs for specific error patterns and failed steps.
+
+## Workflow Run Status Values
+
+### Status Values
+- `queued` - Workflow is waiting to start
+- `in_progress` - Workflow is currently running
+- `completed` - Workflow has finished
+
+### Conclusion Values (when status is `completed`)
+- `success` - All jobs completed successfully
+- `failure` - One or more jobs failed
+- `cancelled` - Workflow was cancelled
+- `skipped` - Workflow was skipped (e.g., no changes)
+- `neutral` - Workflow completed with neutral result
+
+## Best Practices
+
+### Pre-Release Monitoring
+1. **Check Latest Build**: Verify main branch builds successfully
+   ```powershell
+   gh run list --workflow=build.yml --branch=main --limit 1
+   ```
+
+2. **Verify All Versions Build**: Check build-matrix jobs for all Minecraft versions
+   ```powershell
+   $runId = (gh run list --workflow=build.yml --limit 1 --json databaseId -q '.[0].databaseId')
+   gh run view $runId --json jobs --jq '.jobs[] | select(.name | startswith("build-matrix")) | {name: .name, conclusion: .conclusion}'
+   ```
+
+### Post-Release Monitoring
+1. **Monitor Release Workflow**: Watch the release-manual job after creating a tag
+   ```powershell
+   .\scripts\watch-pipeline.ps1
+   ```
+
+2. **Verify Release Artifacts**: Check that all JARs were uploaded
+   ```powershell
+   $runId = <release-run-id>
+   gh run view $runId --log | Select-String -Pattern "Found JARs:|All JARs collected"
+   ```
+
+3. **Check Modrinth Publishing**: Verify successful Modrinth upload
+   ```powershell
+   gh run view <run-id> --log | Select-String -Pattern "Modrinth|Published|Upload"
+   ```
+
+### Troubleshooting Failed Workflows
+1. **Identify Failed Jobs**: Find which jobs failed
+   ```powershell
+   $runId = <run-id>
+   gh run view $runId --json jobs --jq '.jobs[] | select(.conclusion == "failure") | .name'
+   ```
+
+2. **Check Specific Job Logs**: View detailed logs for failed job
+   ```powershell
+   gh run view --job=<job-id> --log | Select-String -Pattern "error|Error|ERROR|failed|Failed"
+   ```
+
+3. **Check Common Issues**:
+   - Build failures: Look for compilation errors
+   - JAR not found: Check "Rename JAR" step
+   - Version extraction: Verify "Extract properties" step
+   - Modrinth errors: Check authentication and API responses
+
+### Continuous Monitoring
+1. **Regular Checks**: Periodically check workflow status during development
+2. **Pre-Commit Verification**: Check recent builds before making changes
+3. **Release Verification**: Always verify release workflows complete successfully
+4. **Alert on Failures**: Set up notifications for workflow failures (GitHub settings)
+
+## Integration with Development Workflow
+
+### After Pushing Code
+```powershell
+# Push code, then immediately check status
+git push
+gh run list --workflow=build.yml --limit 1
+```
+
+### After Creating Release Tag
+```powershell
+# Run release script
+.\release.ps1 -Version "4.0.19"
+
+# Monitor the triggered workflow
+.\scripts\watch-pipeline.ps1
+```
+
+### Before Merging PRs
+```powershell
+# Check PR workflow status
+gh pr checks <pr-number>
+gh run list --branch=<branch-name> --limit 1
+```
+
+## Useful Command Combinations
+
+### Quick Status Summary
+```powershell
+gh run list --workflow=build.yml --limit 3 --json status,conclusion,displayTitle,headBranch,event | ConvertFrom-Json | Format-Table
+```
+
+### Find Latest Release Run
+```powershell
+$releaseRun = gh run list --workflow=build.yml --event=create --limit 1 --json databaseId,status,conclusion,headBranch | ConvertFrom-Json
+Write-Host "Latest release: $($releaseRun.headBranch) - $($releaseRun.status)/$($releaseRun.conclusion)"
+```
+
+### Check Build Matrix Status
+```powershell
+$runId = <run-id>
+gh run view $runId --json jobs --jq '.jobs[] | select(.name | startswith("build-matrix")) | "\(.name): \(.conclusion)"'
+```
+
+## Important Notes
+- Always authenticate with `gh auth login` before using CLI commands
+- Use `--json` flag for programmatic access to workflow data
+- Workflow run IDs are database IDs, not sequential numbers
+- Job IDs are also database IDs and can be found in job JSON output
+- Logs may be large; use `Select-String` or `grep` to filter
+- Some commands require repository read access
+- Failed workflows should be investigated immediately to prevent cascading issues
+
+## Script Location
+Monitoring helper scripts are located in `scripts/`:
+- `check-pipeline-status.ps1` - Quick status check
+- `watch-pipeline.ps1` - Monitor until completion
+- `get-pipeline-errors.ps1` - Find failures
+- `check-pipeline-logs.ps1` - Examine logs
+- `monitor-pipeline.ps1` - Alternative monitoring (uses API)

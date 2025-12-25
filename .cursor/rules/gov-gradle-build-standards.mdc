@@ -1,0 +1,144 @@
+---
+alwaysApply: true
+---
+
+# Gradle Build Standards for Fabric Mod
+
+## Build Configuration
+- Use Fabric Loom plugin for Minecraft development
+- Set Java compatibility to 21 in build configuration
+- Use Yarn mappings for deobfuscation
+- Include Fabric API as mod dependency
+
+## Key Configuration Files
+- `build.gradle` - Main build script with dependencies and tasks
+- `gradle.properties` - Version definitions and project properties
+- `settings.gradle` - Repository configuration and plugin management
+- `gradle/wrapper/` - Gradle wrapper for consistent builds
+
+## Version Management
+```properties
+# gradle.properties example
+minecraft_version=1.21.6
+yarn_mappings=1.21.6+build.1
+loader_version=0.16.14
+fabric_version=0.127.1+1.21.6
+
+mod_version=1.0.0
+maven_group=com.example
+archives_base_name=my-mod
+```
+
+## Build Tasks
+- `./gradlew build` - Build the mod JAR
+- `./gradlew runClient` - Run Minecraft client with mod
+- `./gradlew runServer` - Run Minecraft server with mod
+- `./gradlew clean` - Clean build artifacts
+- `./gradlew test` - Run unit tests
+- `./gradlew jar` - Create JAR without dependencies
+
+## Dependencies
+### Required
+- `minecraft` - Minecraft game dependency
+- `mappings` - Yarn mappings for development
+- `modImplementation fabric-loader` - Fabric mod loader
+- `modImplementation fabric-api` - Fabric API (usually required)
+
+### Optional
+- `modImplementation` - Runtime dependencies
+- `modCompileOnly` - Compile-time only dependencies
+- `include` - Bundle dependencies in JAR
+
+## Build Optimization
+- Enable parallel builds: `org.gradle.parallel=true`
+- Allocate sufficient memory: `org.gradle.jvmargs=-Xmx2G`
+- Use build cache for faster rebuilds
+- Configure source compatibility properly
+
+## Publishing Configuration
+```gradle
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        // Add repositories as needed
+    }
+}
+```
+
+## fabric.mod.json Configuration
+- **CRITICAL**: ALL values in `fabric.mod.json` MUST use variables from `gradle.properties`
+- Never hardcode any values in `fabric.mod.json`
+- Use `${variable_name}` syntax for all fields
+- Required variables in `gradle.properties`:
+  - `mod_version`, `mod_id`, `mod_name`, `mod_description`, `mod_author`
+  - `mod_license`, `mod_homepage`, `mod_sources`, `mod_issues`, `mod_icon`
+  - `main_class`, `client_class`, `modmenu_class` (if applicable)
+  - `minecraft_version`, `fabric_loader_version`, `java_version`
+  - `fabric_api_version`, `modmenu_version` (if applicable)
+- Example structure:
+```json
+{
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": ["${mod_author}"],
+  "contact": {
+    "homepage": "${mod_homepage}",
+    "sources": "${mod_sources}",
+    "issues": "${mod_issues}"
+  },
+  "license": "${mod_license}",
+  "icon": "${mod_icon}",
+  "entrypoints": {
+    "main": ["${main_class}"],
+    "client": ["${client_class}"]
+  },
+  "mixins": ["${mod_id}.mixins.json"],
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "fabric-api": "${fabric_api_version}",
+    "minecraft": ">=${minecraft_version}",
+    "java": ">=${java_version}"
+  }
+}
+```
+- Update `build.gradle` `processResources` task to expand all variables:
+```gradle
+processResources {
+    inputs.property "mod_version", project.mod_version
+    inputs.property "mod_id", project.mod_id
+    // ... all other variables ...
+    filesMatching("fabric.mod.json") {
+        expand "mod_version": project.mod_version,
+               "mod_id": project.mod_id,
+               // ... all other variables ...
+    }
+}
+```
+
+## Best Practices
+- **Version Control**:
+  - Keep Gradle wrapper in repository
+  - Use properties for version management
+  - Document build requirements
+- **Dependencies**:
+  - Specify exact versions
+  - Minimize bundled dependencies
+  - Check for conflicts
+- **Performance**:
+  - Configure JVM arguments appropriately
+  - Use incremental compilation
+  - Cache dependencies locally
+- **Compatibility**:
+  - Test with minimum and latest versions
+  - Document supported versions
+  - Handle optional dependencies gracefully
+description:
+globs:
+alwaysApply: false
+---

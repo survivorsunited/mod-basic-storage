@@ -1,0 +1,98 @@
+---
+alwaysApply: true
+---
+
+# Minecraft Fabric Mod Development Rules
+
+## Project Context
+You are working on a Minecraft Fabric mod project with the following structure:
+- Fabric mod for Minecraft 1.21.10+
+- Uses Fabric Loader 0.17.3+ and Fabric API
+- Java 21 required
+- Gradle build system with Fabric Loom
+- CI/CD via GitHub Actions (if configured)
+- Custom Portals mod for creating portals from any block
+
+## Key Technologies
+- **Language**: Java 21
+- **Build Tool**: Gradle with Fabric Loom
+- **Framework**: Fabric (Minecraft modding)
+- **Testing**: Minecraft test server via build.ps1
+- **Dependencies**: Cardinal Components, YACL (Yet Another Config Lib), ModMenu
+- **CI/CD**: GitHub Actions (if configured)
+- **Publishing**: Modrinth, GitHub Releases (if configured)
+
+## Project Structure
+```
+mod-CustomPortals/
+├── src/main/java/          # Java source code
+│   └── dev/custom/portals/
+│       ├── CustomPortals.java           # Main mod class
+│       ├── CustomPortalsClient.java     # Client class
+│       ├── blocks/                      # Portal blocks
+│       ├── items/                       # Portal items
+│       ├── config/                      # Configuration
+│       ├── data/                        # Portal data storage
+│       ├── mixin/                       # Mixins
+│       ├── registry/                    # Registries
+│       └── util/                        # Utilities
+├── src/main/resources/     # Resources (mixins, fabric.mod.json)
+├── scripts/                # Utility scripts
+├── gradle.properties       # Mod configuration
+└── build.gradle           # Build configuration
+```
+
+## Namespace Convention
+- **Organization**: dev.custom
+- **Mod ID**: customportals
+- **JAR Name**: custom-portals
+- **Java Package**: dev.custom.portals
+- **Maven Group**: net.custom.portals
+
+## Configuration Management
+All mod properties are centralized in `gradle.properties`:
+- Minecraft/Fabric versions
+- Mod metadata (name, version, ID, etc.)
+- Dependencies
+- Use property expansion in fabric.mod.json and build.gradle
+
+## Development Workflow
+1. Make changes to Java code or resources
+2. Run `.\build.ps1` to build
+3. Run `.\build.ps1 -StartServer` to test with local server (if available)
+4. Commit changes (mod will be built by CI if configured)
+5. Tag releases for automatic publishing
+
+## Build Scripts
+- **build.ps1**: Main build script
+  - Sets up Java 21 environment
+  - Builds mod
+  - Optionally starts test server with mod
+  - Downloads MC server & Fabric loader automatically
+
+## Code Style
+- Follow Java conventions
+- Use meaningful variable names
+- Minimize comments (self-documenting code)
+- Use existing patterns in codebase
+- NEVER add comments unless explicitly requested
+
+## Testing
+- Use local test server via build.ps1
+- Test both client and server functionality
+- Verify portal creation and linking
+- Check configuration options
+
+## Common Tasks
+- **Add new portal block**: Update CPBlocks.java and register block
+- **Add new rune**: Create rune block class extending AbstractRuneBlock
+- **Change portal behavior**: Modify PortalBlock.java
+- **Update config**: Edit CPSettings.java
+- **Release new version**: Update mod_version in gradle.properties, commit, tag, push
+
+## Important Files
+- `gradle.properties`: Central configuration
+- `src/main/resources/fabric.mod.json`: Mod metadata
+- `src/main/java/dev/custom/portals/CustomPortals.java`: Main mod class
+- `src/main/java/dev/custom/portals/blocks/PortalBlock.java`: Portal block logic
+- `src/main/java/dev/custom/portals/config/CPSettings.java`: Configuration
