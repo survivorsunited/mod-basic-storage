@@ -243,7 +243,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           // Try to push items from this crate
           ActionResult transferResult = handleManualCrateTransfer(player, singleCrateStack, cbe, true, world, pos, state);
           
-          if (transferResult == ActionResult.CONSUME) {
+          // SUCCESS = transfer succeeded; apply updated crate back to player hand to avoid duping
+          if (transferResult == ActionResult.SUCCESS || transferResult == ActionResult.CONSUME) {
             // Transfer happened
             anyTransfer = true;
             
