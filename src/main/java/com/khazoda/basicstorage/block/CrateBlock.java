@@ -115,50 +115,47 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
       // Manual crate transfer: Pull items (Shift+Sneak+Left Click)
       if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
-        // Shift+Sneak+Left Click: Transfer from clicked crate to held crate
-        // Split stack FIRST if needed, then transfer to the single crate
-        boolean inventoryWasFull = false;
-        if (playerStack.getCount() > 1) {
-          // Split the stack: keep 1 in hand, put rest in inventory
+        // Split so only one crate gets filled. If no room in inventory, grab one, fill it, drop it.
+        // Must insert rest into slots OTHER than selected, or insertStack merges back into hand and whole stack gets filled (dupe).
+        int stackCount = playerStack.getCount();
+        ItemStack singleCrateStack = playerStack.copy();
+        singleCrateStack.setCount(1);
+        boolean fillOneAndDrop = false;
+        if (stackCount > 1) {
           ItemStack restOfStack = playerStack.copy();
-          restOfStack.setCount(playerStack.getCount() - 1);
-          playerStack.setCount(1);
-          
-          // Update player's hand immediately with the single crate
-          player.setStackInHand(hand, playerStack);
-          
-          // Try to add rest of stack to inventory
-          if (!player.getInventory().insertStack(restOfStack)) {
-            // Inventory full, drop the rest
-            inventoryWasFull = true;
-            ItemEntity itemEntity = new ItemEntity(
-                world, player.getX(), player.getY(), player.getZ(), restOfStack);
-            itemEntity.setPickupDelay(40);
-            world.spawnEntity(itemEntity);
+          restOfStack.setCount(stackCount - 1);
+          player.setStackInHand(hand, singleCrateStack);
+          if (!insertStackExcludingSelectedSlot(player, restOfStack)) {
+            fillOneAndDrop = true;
+            player.setStackInHand(hand, restOfStack);
           }
+        } else {
+          singleCrateStack = player.getStackInHand(hand);
         }
         
-        // Now get the updated stack (should be count 1 after potential split)
-        ItemStack singleCrateStack = player.getStackInHand(hand);
         BlockHitResult hit = new BlockHitResult(
             net.minecraft.util.math.Vec3d.ofCenter(pos), direction, pos, false);
         ActionResult transferResult = handleManualCrateTransfer(player, singleCrateStack, cbe, false, world, pos, state);
         
         if (transferResult == ActionResult.SUCCESS) {
-          // Transfer was successful
-          if (inventoryWasFull) {
-            // Inventory was full when we split, so drop the filled crate
-            ItemStack filledCrate = player.getStackInHand(hand);
-            if (!filledCrate.isEmpty()) {
-              player.setStackInHand(hand, ItemStack.EMPTY);
-              ItemEntity itemEntity = new ItemEntity(
-                  world, player.getX(), player.getY(), player.getZ(), filledCrate);
-              itemEntity.setPickupDelay(40);
-              world.spawnEntity(itemEntity);
-            }
+          if (fillOneAndDrop) {
+            ItemEntity itemEntity = new ItemEntity(
+                world, player.getX(), player.getY(), player.getZ(), singleCrateStack);
+            itemEntity.setPickupDelay(40);
+            world.spawnEntity(itemEntity);
           }
           return ActionResult.SUCCESS; // Prevent block breaking
-        } else if (transferResult != ActionResult.PASS) {
+        }
+        if (fillOneAndDrop) {
+          // Transfer failed; put the one crate back (inventory or drop)
+          if (!player.getInventory().insertStack(singleCrateStack)) {
+            ItemEntity itemEntity = new ItemEntity(
+                world, player.getX(), player.getY(), player.getZ(), singleCrateStack);
+            itemEntity.setPickupDelay(40);
+            world.spawnEntity(itemEntity);
+          }
+        }
+        if (transferResult != ActionResult.PASS) {
           return ActionResult.SUCCESS; // Prevent block breaking
         }
       }
@@ -201,8 +198,10 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       // Todo: Enable for debugging
       // if (playerStack.isOf(net.minecraft.item.Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot);
 
-      // Manual crate transfer: Push items (Shift+Sneak+Right Click)
-      if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+      // Manual crate transfer: Push items (Shift+Sneak+Right Click) — only when held crates have contents
+      // If holding empty crates, fall through so they are inserted into the block as items
+      boolean isCrateWithContents = playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem()) && hasCrateContents(playerStack);
+      if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem()) && isCrateWithContents) {
         // Shift+Sneak+Right Click: Transfer from held crate(s) to clicked crate
         // Process each crate in the stack one by one
         int stackCount = playerStack.getCount();
@@ -253,7 +252,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             boolean isEmpty = (newContents == null || newContents.item().isBlank() || newContents.count() == 0);
             
             if (isEmpty) {
-              // Crate is now empty, remove one crate from the stack
+              // Crate is now empty
+              if (currentCrateStack.getCount() == 1) {
+                // Single crate: keep the empty crate in hand
+                player.setStackInHand(hand, singleCrateStack);
+                break;
+              }
               currentCrateStack.decrement(1);
               if (currentCrateStack.isEmpty()) {
                 player.setStackInHand(hand, ItemStack.EMPTY);
@@ -325,6 +329,36 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         return ActionResult.SUCCESS;
       }
     });
+  }
+
+  /**
+   * Inserts stack into player inventory without using the selected hotbar slot.
+   * Used when we have 1 crate in hand and need to put the rest elsewhere so insertStack doesn't merge them back (dupe).
+   * @return true if the entire stack was inserted, false if some or all could not fit
+   */
+  private static boolean insertStackExcludingSelectedSlot(PlayerEntity player, ItemStack stack) {
+    if (stack.isEmpty())
+      return true;
+    var inv = player.getInventory();
+    int selected = inv.getSelectedSlot();
+    int maxStack = stack.getMaxCount();
+    for (int i = 0; i < 36 && !stack.isEmpty(); i++) {
+      if (i == selected)
+        continue;
+      ItemStack inSlot = inv.getStack(i);
+      if (inSlot.isEmpty()) {
+        int move = Math.min(stack.getCount(), maxStack);
+        ItemStack toPut = stack.copy();
+        toPut.setCount(move);
+        inv.setStack(i, toPut);
+        stack.decrement(move);
+      } else if (ItemStack.areItemsAndComponentsEqual(stack, inSlot) && inSlot.getCount() < maxStack) {
+        int move = Math.min(stack.getCount(), maxStack - inSlot.getCount());
+        inSlot.increment(move);
+        stack.decrement(move);
+      }
+    }
+    return stack.isEmpty();
   }
 
   /**
@@ -529,6 +563,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return ActionResult.PASS;
   }
 
+  /** True if the stack is a crate item with non-empty contents (used to decide push vs insert). */
+  private static boolean hasCrateContents(ItemStack stack) {
+    var contents = stack.get(DataComponentRegistry.CRATE_CONTENTS);
+    return contents != null && !contents.item().isBlank() && contents.count() > 0;
+  }
+
   /**
    * UseBlockCallback helper method
    **/
@@ -545,8 +585,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         return false;
       if (stack.isDamaged())
         return false;
-      if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
-          && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
+      // Block only filled crates; empty crates can be stored in the block
+      if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem()) && hasCrateContents(stack))
         return false;
       if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank())
         return false;
