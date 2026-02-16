@@ -6,8 +6,8 @@ This document provides detailed test steps for the latest manual crate transfer 
 
 The latest updates improve manual crate transfer to properly handle stacks of crates:
 
-1. **Pull (Shift+Sneak+Left-Click)**: Automatically splits stack before transfer, drops filled crate if inventory was full
-2. **Push (Shift+Sneak+Right-Click)**: Processes each crate in stack one by one, pushing items from each
+1. **Pull (Sneak+Left-Click)**: Automatically splits stack before transfer, drops filled crate if inventory was full
+2. **Push (Sneak+Right-Click)**: Processes each crate in stack one by one, pushing items from each
 
 ---
 
@@ -273,14 +273,14 @@ The latest updates improve manual crate transfer to properly handle stacks of cr
 
 ## Quick Test Checklist
 
-### Pull Tests (Shift+Sneak+Left-Click)
+### Pull Tests (Sneak+Left-Click)
 - [ ] **Test 1**: Pull with stack, inventory has space → filled crate stays in hand
 - [ ] **Test 2**: Pull with stack, inventory full → filled crate drops
 - [ ] **Test 3**: Pull with single crate → works normally
 - [ ] **Test 7**: Pull with incompatible items → fails correctly
 - [ ] **Test 9**: Pull from empty crate → no transfer
 
-### Push Tests (Shift+Sneak+Right-Click)
+### Push Tests (Sneak+Right-Click)
 - [ ] **Test 4**: Push with stack of filled crates → processes each one
 - [ ] **Test 5**: Push with mixed stack → empty crates skipped
 - [ ] **Test 6**: Push until clicked crate full → stops correctly

@@ -20,14 +20,14 @@ This document lists all supported click events for crates and crate stations.
    - **Action**: Insert all matching items from inventory into the crate
    - **Requirements**: Item must match crate contents or crate must be empty
 
-4. **Shift + Sneak + Right-Click (Manual Transfer - Push)**
+4. **Sneak + Right-Click (Manual Transfer - Push)**
    - **Condition**: Sneaking, holding a crate item
    - **Action**: Transfer items from held crate to clicked crate
    - **Requirements**: Items must be same type or one side must be empty
 
 ### Left-Click Events (AttackBlockCallback)
 
-5. **Shift + Sneak + Left-Click (Manual Transfer - Pull)**
+5. **Sneak + Left-Click (Manual Transfer - Pull)**
    - **Condition**: Sneaking, holding a crate item
    - **Action**: Transfer items from clicked crate to held crate
    - **Requirements**: Items must be same type or one side must be empty
@@ -84,10 +84,10 @@ This document lists all supported click events for crates and crate stations.
 | Crate | Right-Click | None | Insert 1 item |
 | Crate | Right-Click | Empty hand | Show contents |
 | Crate | Right-Click | Shift | Insert all matching items |
-| Crate | Right-Click | Shift + Sneak | Push items from held crate |
+| Crate | Right-Click | Sneak | Push items from held crate |
 | Crate | Left-Click | None | Extract 1 item |
 | Crate | Left-Click | Shift | Extract 1 stack |
-| Crate | Left-Click | Shift + Sneak | Pull items to held crate |
+| Crate | Left-Click | Sneak | Pull items to held crate |
 | Crate Station | Right-Click | None (holding item) | Deposit stack to matching crate |
 | Crate Station | Right-Click | None (empty hand) | Show connected crate count |
 | Crate Station | Right-Click | Shift (holding item) | Deposit all matching items |
@@ -97,7 +97,7 @@ This document lists all supported click events for crates and crate stations.
 
 - All interactions require clicking on the **front face** of the crate (the side with the opening)
 - Manual crate transfer (pull/push) requires holding a crate item in your main hand
-- **Stack Splitting**: When pulling items (Shift+Sneak+Left-Click) with a stack of crates:
+- **Stack Splitting**: When pulling items (Sneak+Left-Click) with a stack of crates:
   - The stack is automatically split to prevent item duplication
   - 1 crate stays in hand, rest goes to inventory (or drops if inventory is full)
   - After transfer, if inventory was full, the filled crate drops on the floor
