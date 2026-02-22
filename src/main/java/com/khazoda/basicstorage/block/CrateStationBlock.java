@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
+import com.khazoda.basicstorage.util.BlockUtils;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.mojang.serialization.MapCodec;
@@ -219,7 +220,7 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
    */
   private static boolean consolidateItems(CrateStationBlockEntity cdbe) {
     World world = cdbe.getWorld();
-    if (world == null || world.isClient)
+    if (world == null || BlockUtils.isClient(world))
       return false;
 
     Map<ItemVariant, List<BlockPos>> crateRegistry = cdbe.getCrateRegistry();

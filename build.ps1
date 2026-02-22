@@ -1,7 +1,8 @@
 param(
     [string]$MinecraftVersion = "1.21.8",
     [switch]$StartServer,
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$NoBump
 )
 
 Set-StrictMode -Version Latest
@@ -48,20 +49,22 @@ function Increment-ModVersion {
 $gradlePropsPath = Join-Path $projectRoot "gradle.properties"
 $gradleProps = Get-Content $gradlePropsPath -Raw
 
-# Extract current mod_version
-if ($gradleProps -match "mod_version=(.+?)(\r?\n|$)") {
-    $currentVersion = $Matches[1].Trim()
-    $newVersion = Increment-ModVersion -CurrentVersion $currentVersion
-    
-    Write-Host "Version bump: $currentVersion -> $newVersion" -ForegroundColor Cyan
-    
-    # Update gradle.properties with new version
-    $gradleProps = $gradleProps -replace "mod_version=.*", "mod_version=$newVersion"
-    Set-Content -Path $gradlePropsPath -Value $gradleProps -NoNewline
-    
-    Write-Host "Updated mod_version in gradle.properties" -ForegroundColor Green
-} else {
-    Write-Host "Warning: Could not find mod_version in gradle.properties" -ForegroundColor Yellow
+if (-not $NoBump) {
+    # Extract current mod_version
+    if ($gradleProps -match "mod_version=(.+?)(\r?\n|$)") {
+        $currentVersion = $Matches[1].Trim()
+        $newVersion = Increment-ModVersion -CurrentVersion $currentVersion
+
+        Write-Host "Version bump: $currentVersion -> $newVersion" -ForegroundColor Cyan
+
+        # Update gradle.properties with new version
+        $gradleProps = $gradleProps -replace "mod_version=.*", "mod_version=$newVersion"
+        Set-Content -Path $gradlePropsPath -Value $gradleProps -NoNewline
+
+        Write-Host "Updated mod_version in gradle.properties" -ForegroundColor Green
+    } else {
+        Write-Host "Warning: Could not find mod_version in gradle.properties" -ForegroundColor Yellow
+    }
 }
 
 # Use isolated Gradle cache per Minecraft version
@@ -141,10 +144,17 @@ try {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Build successful!" -ForegroundColor Green
         
-        # Find the built JAR
         $libsPath = Join-Path $projectRoot "build" "libs"
-        $jars = Get-ChildItem -Path $libsPath -Filter "basicstorage-*-$MinecraftVersion.jar" -ErrorAction SilentlyContinue
+        $outPath = Join-Path $projectRoot "build-output"
+        if (-not (Test-Path $outPath)) { New-Item -ItemType Directory -Path $outPath | Out-Null }
+        $builtJars = Get-ChildItem -Path $libsPath -Filter "basicstorage*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*$MinecraftVersion*" }
+        foreach ($j in $builtJars) {
+            Copy-Item -Path $j.FullName -Destination (Join-Path $outPath $j.Name) -Force
+        }
+        $jarCount = if ($builtJars) { $builtJars.Count } else { 0 }
+        Write-Host "JARs copied to build-output/ ($jarCount files)" -ForegroundColor Cyan
         
+        $jars = Get-ChildItem -Path $libsPath -Filter "basicstorage-*-$MinecraftVersion.jar" -ErrorAction SilentlyContinue
         if ($jars) {
             $latestJar = $jars | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             Write-Host "Built JAR: $($latestJar.Name)" -ForegroundColor Green

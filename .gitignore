@@ -2,6 +2,7 @@
 
 .gradle/
 build/
+build-output/
 out/
 classes/
 

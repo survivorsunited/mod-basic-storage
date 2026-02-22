@@ -27,8 +27,13 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
-
 }
+
+// Use 1.21.9+ client source set when building for 1.21.9+ (string compare: "1.21.10" < "1.21.9", so check explicitly)
+def mcVer = project.findProperty("minecraft_version") ?: "1.21.8"
+def useNewClient = (mcVer != "1.21.8")
+def clientSrcDir = useNewClient ? "src/client1219/java" : "src/client/java"
+sourceSets.client.java.setSrcDirs([file(clientSrcDir)])
 
 fabricApi {
 	configureDataGeneration()

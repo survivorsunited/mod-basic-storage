@@ -29,7 +29,7 @@ public class CrateStationBlockEntity extends BlockEntity {
   }
 
   private void buildCrateCache() {
-    if (world == null || world.isClient)
+    if (world == null || com.khazoda.basicstorage.util.BlockUtils.isClient(world))
       return;
 
     crateRegistry.clear();
