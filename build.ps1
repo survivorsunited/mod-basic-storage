@@ -69,7 +69,22 @@ $gradleCacheDir = Join-Path $projectRoot ".gradle-$MinecraftVersion"
 $env:GRADLE_USER_HOME = $gradleCacheDir
 Write-Host ("Using isolated Gradle cache for {0}: {1}" -f $MinecraftVersion, $gradleCacheDir) -ForegroundColor Cyan
 
-# Update gradle.properties for Minecraft version if needed
+# Update gradle.properties for Minecraft version (and yarn/fabric from versions.json if present)
+$versionsPath = Join-Path $projectRoot "versions.json"
+$versionOverrides = $null
+if (Test-Path $versionsPath) {
+    try {
+        $versionOverrides = Get-Content $versionsPath -Raw | ConvertFrom-Json
+        if ($versionOverrides.minecraft.PSObject.Properties[$MinecraftVersion]) {
+            $versionOverrides = $versionOverrides.minecraft.$MinecraftVersion
+        } else {
+            $versionOverrides = $null
+        }
+    } catch {
+        $versionOverrides = $null
+    }
+}
+
 $needsUpdate = $false
 $propsContent = Get-Content $gradlePropsPath
 $updatedContent = @()
@@ -82,6 +97,15 @@ foreach ($line in $propsContent) {
         } else {
             $updatedContent += $line
         }
+    } elseif ($line -match "^yarn_mappings=" -and $versionOverrides -and $versionOverrides.yarn_mappings) {
+        $updatedContent += "yarn_mappings=$($versionOverrides.yarn_mappings)"
+        $needsUpdate = $true
+    } elseif ($line -match "^fabric_version=" -and $versionOverrides -and $versionOverrides.fabric_version) {
+        $updatedContent += "fabric_version=$($versionOverrides.fabric_version)"
+        $needsUpdate = $true
+    } elseif ($line -match "^mod_version=(\d+\.\d+\.\d+)") {
+        $updatedContent += "mod_version=$($Matches[1])+$MinecraftVersion"
+        $needsUpdate = $true
     } else {
         $updatedContent += $line
     }

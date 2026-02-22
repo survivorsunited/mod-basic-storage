@@ -9,9 +9,10 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         java: [21]
-        mc_version: ["1.21.8"]
+        mc_version: ["1.21.8", "1.21.9", "1.21.10", "1.21.11"]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -27,6 +28,26 @@ jobs:
           java-version: 21
           distribution: 'microsoft'
       - run: chmod +x ./gradlew
+      - name: set gradle.properties for ${{ matrix.mc_version }}
+        shell: pwsh
+        run: |
+          $mc = "${{ matrix.mc_version }}"
+          $props = Get-Content gradle.properties -Raw
+          # Extract base version (e.g. 2.0.8 from 2.0.8+1.21.8)
+          if ($props -match 'mod_version=(\d+\.\d+\.\d+)') { $base = $Matches[1] } else { $base = "0.0.0" }
+          $props = $props -replace 'minecraft_version=.*', "minecraft_version=$mc"
+          $props = $props -replace 'mod_version=.*', "mod_version=$base+$mc"
+          $versionsPath = "versions.json"
+          if (Test-Path $versionsPath) {
+            $v = Get-Content $versionsPath -Raw | ConvertFrom-Json
+            if ($v.minecraft.PSObject.Properties[$mc]) {
+              $entry = $v.minecraft.$mc
+              if ($entry.yarn_mappings) { $props = $props -replace 'yarn_mappings=.*', "yarn_mappings=$($entry.yarn_mappings)" }
+              if ($entry.fabric_version) { $props = $props -replace 'fabric_version=.*', "fabric_version=$($entry.fabric_version)" }
+            }
+          }
+          Set-Content -Path gradle.properties -Value $props -NoNewline
+          Write-Host "Set gradle.properties for Minecraft $mc (mod_version=$base+$mc)"
       - name: build
         id: build_step
         run: ./gradlew build
@@ -37,14 +58,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-logs
+          name: test-logs-${{ matrix.mc_version }}
           path: |
             tests/test-output/**/*.log
             tests/results/*.log
       - uses: actions/upload-artifact@v4
         with:
-          name: Artifacts
-          path: build/libs/
+          name: jar-${{ matrix.mc_version }}
+          path: build/libs/*.jar
       - name: debug workflow conditions
         if: always()
         shell: pwsh
@@ -53,67 +74,48 @@ jobs:
           Write-Host "Event name: ${{ github.event_name }}"
           Write-Host "Ref: ${{ github.ref }}"
           Write-Host "Branch: ${{ github.ref_name }}"
+          Write-Host "MC version: ${{ matrix.mc_version }}"
           Write-Host "Build outcome: ${{ steps.build_step.outcome }}"
-      - name: extract version
-        if: github.event_name == 'push' && steps.build_step.outcome == 'success'
-        shell: pwsh
+
+  release:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: extract base version
         id: version
+        shell: pwsh
         run: |
-          Write-Host "=== EXTRACTING VERSION ==="
           $props = Get-Content gradle.properties -Raw
-          if ($props -match 'mod_version=([^\r\n]+)') {
-              $full = $Matches[1].Trim()
-              if ($full -match '^(\d+\.\d+\.\d+)') {
-                  $ver = $Matches[1]
-              } else {
-                  $ver = $full
-              }
-              Write-Host "Extracted version: $ver"
-              "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              Write-Host "Version written to output"
+          if ($props -match 'mod_version=(\d+\.\d+\.\d+)') {
+            $base = $Matches[1]
+            Write-Host "Base version: $base"
+            "version=$base" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           } else {
-              Write-Host "ERROR: Could not extract version"
-              exit 1
-          }
-      - name: debug version step
-        if: always() && github.event_name == 'push'
-        shell: pwsh
-        run: |
-          Write-Host "=== VERSION STEP DEBUG ==="
-          Write-Host "Version step outcome: ${{ steps.version.outcome }}"
-          Write-Host "Version output: ${{ steps.version.outputs.version }}"
-      - name: list JAR files
-        if: github.event_name == 'push' && steps.version.outcome == 'success'
-        shell: pwsh
-        run: |
-          Write-Host "=== JAR FILES ==="
-          if (Test-Path "build/libs") {
-            $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar"
-            Write-Host "Found $($jars.Count) JAR files:"
-            $jars | ForEach-Object { Write-Host "  - $($_.FullName)" }
-            if ($jars.Count -eq 0) {
-              Write-Host "ERROR: No JAR files found!"
-              exit 1
-            }
-          } else {
-            Write-Host "ERROR: build/libs directory does not exist!"
+            Write-Host "ERROR: Could not extract base version"
             exit 1
           }
-      - name: debug release conditions
-        if: always() && github.event_name == 'push'
+      - name: download all JAR artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jar-*
+          path: release-jars
+          merge-multiple: true
+      - name: list JARs for release
         shell: pwsh
         run: |
-          Write-Host "=== RELEASE CONDITIONS DEBUG ==="
-          Write-Host "Event name: ${{ github.event_name }}"
-          Write-Host "Version outcome: ${{ steps.version.outcome }}"
-          Write-Host "Version value: ${{ steps.version.outputs.version }}"
-          if ("${{ steps.version.outcome }}" -eq "success" -and "${{ steps.version.outputs.version }}" -ne "") {
-            Write-Host "✅ Conditions met for release"
-          } else {
-            Write-Host "❌ Conditions NOT met for release"
+          Get-ChildItem -Path release-jars -Recurse -Filter "*.jar" | ForEach-Object { Write-Host $_.FullName }
+          $jars = Get-ChildItem -Path release-jars -Recurse -Filter "*.jar"
+          if ($jars.Count -eq 0) {
+            Write-Host "ERROR: No JAR files to release"
+            exit 1
           }
       - name: create and push tag
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != ''
         id: tag_step
         shell: bash
         run: |
@@ -125,9 +127,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Fetch existing tags first
           git fetch origin --tags 2>&1 || true
-          # Check if tag already exists
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping tag creation"
             echo "exists=true" >> $GITHUB_OUTPUT
@@ -140,36 +140,14 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: filter JAR files for release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success'
-        shell: pwsh
-        id: filter_jars
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          Write-Host "Filtering JAR files for version: $version"
-          $jars = Get-ChildItem -Path "build/libs" -Filter "*.jar" | Where-Object { $_.Name -match "basicstorage-$version" }
-          if ($jars) {
-            $jarPaths = $jars | ForEach-Object { $_.FullName } | Sort-Object
-            Write-Host "Found matching JAR files:"
-            $jarPaths | ForEach-Object { Write-Host "  - $_" }
-            # Output as newline-separated list for the action
-            $jarList = $jarPaths -join "`n"
-            "files<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            $jarList | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          } else {
-            Write-Host "ERROR: No JAR files found matching version $version"
-            exit 1
-          }
       - name: create release
-        if: github.event_name == 'push' && steps.version.outcome == 'success' && steps.version.outputs.version != '' && steps.tag_step.outcome == 'success' && steps.filter_jars.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Basic Storage ${{ steps.version.outputs.version }}
-            Built for Minecraft ${{ matrix.mc_version }}
-          files: ${{ steps.filter_jars.outputs.files }}
+            Built for Minecraft 1.21.8, 1.21.9, 1.21.10, 1.21.11
+          files: release-jars/**/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

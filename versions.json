@@ -1,0 +1,21 @@
+{
+  "_comment": "yarn_mappings and fabric_version per MC version. 1.21.9+ may require code updates (e.g. getWorld->getEntityWorld, world.isClient->world.isClient()).",
+  "minecraft": {
+    "1.21.8": {
+      "yarn_mappings": "1.21.8+build.1",
+      "fabric_version": "0.129.0+1.21.8"
+    },
+    "1.21.9": {
+      "yarn_mappings": "1.21.9+build.1",
+      "fabric_version": "0.131.3+1.21.9"
+    },
+    "1.21.10": {
+      "yarn_mappings": "1.21.10+build.1",
+      "fabric_version": "0.135.0+1.21.10"
+    },
+    "1.21.11": {
+      "yarn_mappings": "1.21.11+build.4",
+      "fabric_version": "0.139.5+1.21.11"
+    }
+  }
+}
