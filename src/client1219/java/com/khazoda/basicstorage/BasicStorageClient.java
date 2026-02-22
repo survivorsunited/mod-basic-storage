@@ -2,11 +2,9 @@ package com.khazoda.basicstorage;
 
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.renderer.CrateBlockEntityRenderer;
-import com.khazoda.basicstorage.renderer.CrateItemRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.Style;
@@ -22,7 +20,6 @@ public class BasicStorageClient implements ClientModInitializer {
   @Override
   public void onInitializeClient() {
     BlockEntityRendererFactories.register(BlockEntityRegistry.CRATE_BLOCK_ENTITY, CrateBlockEntityRenderer::new);
-    ModelLoadingPlugin.register(new CrateItemRenderer());
 
     ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
         dispatcher.register(ClientCommandManager.literal("basicstorage")

@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         java: [21]
-        mc_version: ["1.21.8", "1.21.9", "1.21.10"]
+        mc_version: ["1.21.8", "1.21.9", "1.21.10", "1.21.11"]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -44,6 +44,7 @@ jobs:
               $entry = $v.minecraft.$mc
               if ($entry.yarn_mappings) { $props = $props -replace 'yarn_mappings=.*', "yarn_mappings=$($entry.yarn_mappings)" }
               if ($entry.fabric_version) { $props = $props -replace 'fabric_version=.*', "fabric_version=$($entry.fabric_version)" }
+              if ($entry.loom_version) { $props = $props -replace 'loom_version=.*', "loom_version=$($entry.loom_version)" }
             }
           }
           Set-Content -Path gradle.properties -Value $props -NoNewline
@@ -147,7 +148,7 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             ## Basic Storage ${{ steps.version.outputs.version }}
-            Built for Minecraft 1.21.8, 1.21.9, 1.21.10
+            Built for Minecraft 1.21.8, 1.21.9, 1.21.10, 1.21.11
           files: release-jars/**/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

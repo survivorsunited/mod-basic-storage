@@ -106,6 +106,9 @@ foreach ($line in $propsContent) {
     } elseif ($line -match "^fabric_version=" -and $versionOverrides -and $versionOverrides.fabric_version) {
         $updatedContent += "fabric_version=$($versionOverrides.fabric_version)"
         $needsUpdate = $true
+    } elseif ($line -match "^loom_version=" -and $versionOverrides -and $versionOverrides.PSObject.Properties['loom_version']) {
+        $updatedContent += "loom_version=$($versionOverrides.loom_version)"
+        $needsUpdate = $true
     } elseif ($line -match "^mod_version=(\d+\.\d+\.\d+)") {
         $updatedContent += "mod_version=$($Matches[1])+$MinecraftVersion"
         $needsUpdate = $true
