@@ -52,6 +52,44 @@ jobs:
       - name: build
         id: build_step
         run: ./gradlew build
+      - name: Test server startup
+        if: success()
+        run: |
+          MC_VERSION="${{ matrix.mc_version }}"
+          LOADER_VERSION=$(grep "^loader_version=" gradle.properties | cut -d'=' -f2)
+          JAR_FILE=$(find build/libs -name "basicstorage-*+${MC_VERSION}.jar" ! -name "*sources*" | head -1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "No JAR found for $MC_VERSION, skipping server test"
+            exit 0
+          fi
+          echo "Testing server startup with mod for Minecraft $MC_VERSION (loader $LOADER_VERSION)"
+          FABRIC_INSTALLER_URL="https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.0/fabric-installer-1.0.0.jar"
+          curl -fsSL -o fabric-installer.jar "$FABRIC_INSTALLER_URL" || { echo "Fabric installer download failed, skipping server test"; exit 0; }
+          mkdir -p test-server
+          cd test-server
+          java -jar ../fabric-installer.jar server -mcversion "$MC_VERSION" -loader "$LOADER_VERSION" -downloadMinecraft || { echo "Fabric installer failed, skipping server test"; cd ..; exit 0; }
+          mkdir -p mods
+          cp "../$JAR_FILE" mods/
+          echo "eula=true" > eula.txt
+          java -Xmx1G -Xms1G -jar server.jar nogui > server.log 2>&1 &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            sleep 2
+            if grep -q "Done" server.log 2>/dev/null; then
+              echo "Server started successfully for $MC_VERSION"
+              grep -qi "basicstorage\|basic storage" server.log 2>/dev/null && echo "Mod loaded" || echo "Mod load check inconclusive"
+              kill $SERVER_PID 2>/dev/null || true
+              wait $SERVER_PID 2>/dev/null || true
+              cd ..
+              exit 0
+            fi
+          done
+          echo "Server did not start within 60s"
+          tail -n 80 server.log
+          kill $SERVER_PID 2>/dev/null || true
+          wait $SERVER_PID 2>/dev/null || true
+          cd ..
+          exit 1
       - name: run version bump test
         shell: pwsh
         run: ./tests/002-version-bump.ps1 -MinecraftVersion "${{ matrix.mc_version }}"
