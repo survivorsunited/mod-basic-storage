@@ -69,6 +69,9 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
         return ActionResult.PASS;
       if (!player.canModifyBlocks() || player.isSpectator())
         return ActionResult.PASS;
+      if(player.getStackInHand(hand).isOf(BlockRegistry.CRATE_BLOCK.asItem()) && player.isSneaking()) {
+        return ActionResult.PASS;
+      }
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
@@ -121,11 +124,11 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
         }
 
         if (inserted == 1) {
-          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f, 1.05f);
         } else if (inserted <= 64) {
-          world.playSound(null, pos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
         } else {
-          world.playSound(null, pos, SoundRegistry.HANDLE_LOADS, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_LOADS, SoundCategory.BLOCKS, 1f, 1.05f);
         }
 
         state.updateNeighbors(world, pos, 1);
