@@ -9,7 +9,8 @@ import net.fabricmc.fabric.api.transfer.v1.storage.base.ResourceAmount;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
 import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
@@ -136,17 +137,16 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
     update();
   }
 
-  public void readNbt(Optional<NbtCompound> nbtCompound) {
-    NbtCompound nbt = nbtCompound.orElseGet(() -> new NbtCompound());
-    count = (int) nbt.getLong("count", 0);
-    item = nbt.get("item", ItemVariant.CODEC).orElse(ItemVariant.blank());
+  public void readData(ReadView view) {
+    count = (int) view.getLong("count", 0);
+    item = view.read("item", ItemVariant.CODEC).orElse(ItemVariant.blank());
     if (item.isBlank())
       count = 0;
   }
 
-  public void writeNbt(NbtCompound nbt) {
-    nbt.put("item", ItemVariant.CODEC, item);
-    nbt.putLong("count", count);
+  public void writeData(WriteView view) {
+    view.put("item", ItemVariant.CODEC, item);
+    view.putLong("count", count);
   }
 
   @Override

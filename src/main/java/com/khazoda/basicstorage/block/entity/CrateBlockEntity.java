@@ -46,15 +46,13 @@ public class CrateBlockEntity extends BlockEntity {
   @Override
   protected void writeData(WriteView view) {
     super.writeData(view);
-    var storageNbt = new NbtCompound();
-    storage.writeNbt(storageNbt);
-    view.put("crateStack", NbtCompound.CODEC, storageNbt);
+    storage.writeData(view.get("crateStack"));
   }
 
   @Override
   protected void readData(ReadView view) {
     super.readData(view);
-    storage.readNbt(view.read("crateStack", NbtCompound.CODEC));
+    storage.readData(view.getReadView("crateStack"));
   }
 
   /**
