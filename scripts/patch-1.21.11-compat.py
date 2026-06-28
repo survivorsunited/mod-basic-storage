@@ -15,31 +15,79 @@ def rw(path, fn):
         print(f"unchanged {path}")
 
 
+def find_method_bounds(text, signature):
+    idx = text.find(signature)
+    if idx < 0:
+        return None
+
+    start = text.rfind("\n", 0, idx) + 1
+
+    # Include an immediately preceding @Override annotation.
+    prev_start = text.rfind("\n", 0, max(0, start - 2)) + 1
+    prev_line = text[prev_start:start].strip()
+    if prev_line == "@Override":
+        start = prev_start
+
+    brace_start = text.find("{", idx)
+    if brace_start < 0:
+        return None
+
+    depth = 0
+    for pos in range(brace_start, len(text)):
+        char = text[pos]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                end = pos + 1
+                if end < len(text) and text[end:end + 1] == "\n":
+                    end += 1
+                return start, end
+    return None
+
+
+def remove_method(text, signature):
+    bounds = find_method_bounds(text, signature)
+    if not bounds:
+        return text
+    start, end = bounds
+    return text[:start] + text[end:]
+
+
+def replace_method(text, signature, replacement):
+    bounds = find_method_bounds(text, signature)
+    if not bounds:
+        return text
+    start, end = bounds
+    return text[:start] + replacement + text[end:]
+
+
 def patch_crate_block(text):
     text = text.replace("import net.minecraft.loot.context.LootContextParameterSet;\n", "")
     if "import net.minecraft.world.block.WireOrientation;" not in text:
-        text = text.replace("import net.minecraft.world.World;\n", "import net.minecraft.world.World;\nimport net.minecraft.world.block.WireOrientation;\n")
+        text = text.replace(
+            "import net.minecraft.world.World;\n",
+            "import net.minecraft.world.World;\nimport net.minecraft.world.block.WireOrientation;\n",
+        )
+
     text = re.sub(r"world\.isClient(?!\s*\()", "world.isClient()", text)
     text = text.replace("ActionResult.CONSUME_PARTIAL", "ActionResult.CONSUME")
+    text = remove_method(text, "protected List<ItemStack> getDroppedStacks")
 
-    text = re.sub(
-        r"\n  @Override\n  protected List<ItemStack> getDroppedStacks\(BlockState state, LootContextParameterSet\.Builder\s+builder\) \{\n    return super\.getDroppedStacks\(state, builder\);\n  \}\n",
-        "\n",
+    text = replace_method(
         text,
-        flags=re.S,
-    )
-    text = re.sub(
-        r"\n  @Override\n  protected List<ItemStack> getDroppedStacks\([^}]+\}\n",
-        "\n",
-        text,
-        flags=re.S,
-    )
-
-    text = re.sub(
-        r"\n  @Override\n  protected void onStateReplaced\(BlockState state, World world, BlockPos pos, BlockState newState,\s+boolean moved\) \{\n    if \(state\.isOf\(newState\.getBlock\(\)\)\) \{\n      return;\n    \}\n    BlockEntity blockEntity = world\.getBlockEntity\(pos\);\n    if \(blockEntity instanceof CrateBlockEntity\) \{\n      world\.updateComparators\(pos, state\.getBlock\(\)\);\n      notifyNearbyStations\(world, pos\);\n      world\.emitGameEvent\(null, GameEvent\.BLOCK_DESTROY, pos\);\n    \}\n    super\.onStateReplaced\(state, world, pos, newState, moved\);\n  \}\n",
-        "\n  @Override\n  protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {\n    BlockEntity blockEntity = world.getBlockEntity(pos);\n    if (blockEntity instanceof CrateBlockEntity) {\n      world.updateComparators(pos, state.getBlock());\n      notifyNearbyStations(world, pos);\n      world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);\n    }\n    super.onStateReplaced(state, world, pos, moved);\n  }\n",
-        text,
-        flags=re.S,
+        "protected void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState",
+        "  @Override\n"
+        "  protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {\n"
+        "    BlockEntity blockEntity = world.getBlockEntity(pos);\n"
+        "    if (blockEntity instanceof CrateBlockEntity) {\n"
+        "      world.updateComparators(pos, state.getBlock());\n"
+        "      notifyNearbyStations(world, pos);\n"
+        "      world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);\n"
+        "    }\n"
+        "    super.onStateReplaced(state, world, pos, moved);\n"
+        "  }\n",
     )
 
     text = text.replace(
@@ -70,24 +118,16 @@ def patch_station_entity(text):
 
 def patch_block_entity(text):
     text = text.replace("      world.getWorldChunk(pos).setNeedsSaving(true);\n", "      markDirty();\n")
-
-    text = re.sub(
-        r"\n  /\*\*\n   \* NBT Operations\n   \*\*/\n  @Override\n  protected void writeNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    var storageNbt = new NbtCompound\(\);\n    storage\.writeNbt\(storageNbt, registryLookup\);\n    nbt\.put\(\"crateStack\", storageNbt\);\n    nbt\.putBoolean\(\"locked\", locked\);\n  \}\n\n  @Override\n  protected void readNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    super\.readNbt\(nbt, registryLookup\);\n    if \(nbt\.contains\(\"crateStack\", 10\)\) \{\n      storage\.readNbt\(nbt\.getCompound\(\"crateStack\"\), registryLookup\);\n    \}\n    if \(nbt\.contains\(\"locked\", 1\)\) \{\n      locked = nbt\.getBoolean\(\"locked\");\n    \}\n  \}\n",
-        "\n",
-        text,
-        flags=re.S,
-    )
+    text = remove_method(text, "protected void writeNbt(NbtCompound nbt")
+    text = remove_method(text, "protected void readNbt(NbtCompound nbt")
+    text = remove_method(text, "protected void readComponents(")
 
     text = text.replace(
         "    writeNbt(nbt, registryLookup);",
-        "    var storageNbt = new NbtCompound();\n    storage.writeNbt(storageNbt, registryLookup);\n    nbt.put(\"crateStack\", storageNbt);\n    nbt.putBoolean(\"locked\", locked);",
-    )
-
-    text = re.sub(
-        r"\n  @Override\n  protected void readComponents\(BlockEntity\.ComponentsAccess components\) \{\n    CrateSlotComponent contents = components\.getOrDefault\(DataComponentRegistry\.CRATE_CONTENTS,\s+CrateSlotComponent\.DEFAULT\);\n    if \(contents == null \|\| contents\.count\(\) == 0\)\n      return;\n    try \(Transaction t = Transaction\.openOuter\(\)\) \{\n      if \(!this\.storage\.isBlank\(\)\)\n        return; // Prevents creative block pick from duping items\n      this\.storage\.insert\(contents\.item\(\), contents\.count\(\), t\);\n      t\.commit\(\);\n    \}\n    this\.refresh\(\);\n  \}\n",
-        "\n",
-        text,
-        flags=re.S,
+        "    var storageNbt = new NbtCompound();\n"
+        "    storage.writeNbt(storageNbt, registryLookup);\n"
+        "    nbt.put(\"crateStack\", storageNbt);\n"
+        "    nbt.putBoolean(\"locked\", locked);",
     )
     return text
 
@@ -103,12 +143,7 @@ def patch_crate_slot(text):
 def patch_reggie(text):
     text = text.replace("import net.minecraft.item.ArmorMaterial;\n", "")
     text = text.replace("import net.minecraft.registry.entry.RegistryEntry;\n", "")
-    text = re.sub(
-        r"\n  // Register Armor Material\n  public static RegistryEntry<ArmorMaterial> register\(String name, ArmorMaterial material\) \{\n    return Registry\.registerReference\(Registries\.ARMOR_MATERIAL, newID\(name\), material\);\n  \}\n",
-        "\n",
-        text,
-        flags=re.S,
-    )
+    text = remove_method(text, "public static RegistryEntry<ArmorMaterial> register")
     return text
 
 
@@ -116,36 +151,44 @@ def patch_sound_registry(text):
     if "HANDLE_ONE" not in text:
         text = text.replace(
             "  public static final SoundEvent NO_MATCH = register(\"no_match\");\n",
-            "  public static final SoundEvent NO_MATCH = register(\"no_match\");\n  public static final SoundEvent HANDLE_ONE = INSERT_ONE;\n  public static final SoundEvent HANDLE_MANY = INSERT_MANY;\n  public static final SoundEvent HANDLE_LOADS = INSERT_LOADS;\n",
+            "  public static final SoundEvent NO_MATCH = register(\"no_match\");\n"
+            "  public static final SoundEvent HANDLE_ONE = INSERT_ONE;\n"
+            "  public static final SoundEvent HANDLE_MANY = INSERT_MANY;\n"
+            "  public static final SoundEvent HANDLE_LOADS = INSERT_LOADS;\n",
         )
     return text
 
 
 def patch_block_entity_registry(text):
     if "FabricBlockEntityTypeBuilder" not in text:
-        text = text.replace("import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;\n", "import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;\nimport net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;\n")
+        text = text.replace(
+            "import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;\n",
+            "import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;\n"
+            "import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;\n",
+        )
     text = text.replace("BlockEntityType.Builder.create", "FabricBlockEntityTypeBuilder.create")
     return text
 
 
 def patch_block_utils(text):
-    text = text.replace("player.getWorld().raycast", "player.getEntityWorld().raycast")
-    return text
+    return text.replace("player.getWorld().raycast", "player.getEntityWorld().raycast")
 
 
 def patch_config_payload(text):
-    text = text.replace("PacketCodecs.BOOL", "PacketCodecs.BOOLEAN")
-    return text
+    return text.replace("PacketCodecs.BOOL", "PacketCodecs.BOOLEAN")
 
 
 def patch_loot_provider(text):
-    text = re.sub(
-        r"\.apply\(CopyComponentsLootFunction\.builder\(CopyComponentsLootFunction\.Source\.BLOCK_ENTITY\)\s+\.include\(DataComponentRegistry\.CRATE_CONTENTS\)\)",
+    text = text.replace("import net.minecraft.loot.function.CopyComponentsLootFunction;\n", "")
+    text = text.replace(
+        ".apply(CopyComponentsLootFunction.builder(CopyComponentsLootFunction.Source.BLOCK_ENTITY)\n                .include(DataComponentRegistry.CRATE_CONTENTS))",
         "",
-        text,
-        flags=re.S,
     )
-    return text.replace("import net.minecraft.loot.function.CopyComponentsLootFunction;\n", "")
+    text = text.replace(
+        ".apply(CopyComponentsLootFunction.builder(CopyComponentsLootFunction.Source.BLOCK_ENTITY)\n            .include(DataComponentRegistry.CRATE_CONTENTS))",
+        "",
+    )
+    return text
 
 
 rw("src/main/java/com/khazoda/basicstorage/block/CrateBlock.java", patch_crate_block)
