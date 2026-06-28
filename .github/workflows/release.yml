@@ -32,9 +32,6 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Patch source for Minecraft 1.21.11
-        run: python3 scripts/patch-1.21.11-compat.py
-
       - name: Build 1.21.11 jar
         run: ./gradlew clean build --no-daemon
 
@@ -66,10 +63,6 @@ jobs:
           ASSET_PATH="release-assets/${ASSET_NAME}"
           cp "$SOURCE_JAR" "$ASSET_PATH"
 
-          echo "Release tag: $BASE_VERSION"
-          echo "Release asset: $ASSET_NAME"
-          ls -la release-assets
-
           echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "mc_version=$MC_VERSION" >> "$GITHUB_OUTPUT"
           echo "asset_name=$ASSET_NAME" >> "$GITHUB_OUTPUT"
@@ -93,8 +86,4 @@ jobs:
           replacesArtifacts: true
           removeArtifacts: false
           generateReleaseNotes: true
-          body: |
-            Basic Storage ${{ steps.release_asset.outputs.base_version }} for Minecraft ${{ steps.release_asset.outputs.mc_version }}.
-
-            Release asset:
-            `${{ steps.release_asset.outputs.asset_name }}`
+          body: Basic Storage ${{ steps.release_asset.outputs.base_version }} for Minecraft ${{ steps.release_asset.outputs.mc_version }}.
