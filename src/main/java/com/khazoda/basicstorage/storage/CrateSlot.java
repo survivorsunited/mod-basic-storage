@@ -149,9 +149,10 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
   }
 
   public void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    item = ItemVariant.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registryLookup), nbt.getCompound("item"))
-        .getOrThrow();
-    count = (int) nbt.getLong("count");
+    item = nbt.getCompound("item")
+        .map(itemNbt -> ItemVariant.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registryLookup), itemNbt).getOrThrow())
+        .orElse(ItemVariant.blank());
+    count = nbt.getLong("count").map(Long::intValue).orElse(0);
     if (item.isBlank())
       count = 0;
   }
