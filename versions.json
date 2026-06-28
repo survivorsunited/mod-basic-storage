@@ -4,7 +4,7 @@
     "loader_version": "0.19.3",
     "fabric_version": "0.141.4+1.21.11",
     "loom_version": "1.14-SNAPSHOT",
-    "gradle_version": "8.14",
+    "gradle_version": "9.2.0",
     "java_version": 21
   }
 }
