@@ -43,6 +43,9 @@ jobs:
             exit 1
           fi
 
+      - name: Patch source for Minecraft 1.21.11
+        run: python3 scripts/patch-1.21.11-compat.py
+
       - name: Build 1.21.11 jar
         run: ./gradlew clean build --no-daemon
 
