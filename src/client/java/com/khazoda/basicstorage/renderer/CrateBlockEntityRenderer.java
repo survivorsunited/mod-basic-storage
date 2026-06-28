@@ -50,8 +50,8 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     BlockEntityRenderer.super.updateRenderState(be, crateState, tickProgress, cameraPos, crumblingOverlay);
 
     BlockState state = be.getCachedState();
-    Orientation orientation = state.get(CrateBlock.ORIENTATION);
-    Direction facing = orientation.getFacing().getOpposite();
+    Orientation orientation = resolveRenderOrientation(state);
+    Direction facing = orientation.getFacing();
     BlockPos pos = be.getPos();
     World world = be.getWorld();
 
@@ -133,6 +133,17 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     matrices.pop();
   }
 
+  private Orientation resolveRenderOrientation(BlockState state) {
+    Orientation orientation = state.get(CrateBlock.ORIENTATION);
+    Direction legacyFacing = state.get(CrateBlock.HORIZONTAL_FACING);
+
+    if (orientation == Orientation.NORTH_UP && legacyFacing != Direction.NORTH) {
+      return Orientation.byDirections(legacyFacing, Direction.UP);
+    }
+
+    return orientation;
+  }
+
   protected void alignMatricesToOrientation(MatrixStack matrices, Orientation orientation) {
     matrices.translate(0.5, 0.5, 0.5);
     switch (orientation) {
@@ -171,8 +182,6 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       }
     }
-
-    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
     matrices.translate(0, 0, 0.51);
   }
 }
