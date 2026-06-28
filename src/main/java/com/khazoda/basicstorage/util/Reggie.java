@@ -2,13 +2,11 @@ package com.khazoda.basicstorage.util;
 
 import com.khazoda.basicstorage.Constants;
 import net.minecraft.block.Block;
-import net.minecraft.item.ArmorMaterial;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
 
 public class Reggie {
@@ -31,11 +29,6 @@ public class Reggie {
 //  public static Item register(String name) {
 //    return RegistryHelper.registerItem(name, new Item(new Item.Settings().maxCount(64)));
 //  }
-//
-//  /* Register armour material */
-//  public static RegistryEntry<ArmorMaterial> register(String name, ArmorMaterial material) {
-//    return RegistryHelper.registerArmorMaterial(name, material);
-//  }
 
   // General use Identifier() maker function
   public static Identifier newID(String name) {
@@ -51,7 +44,7 @@ public class Reggie {
 
   // 2. Takes identifier and registers block and block items
   public static <B extends Block> B register(Identifier name, B block, Item.Settings itemSettings) {
-    BlockItem item = new BlockItem(block, (itemSettings));
+    BlockItem item = new BlockItem(block, itemSettings);
     item.appendBlocks(Item.BLOCK_ITEMS, item);
 
     Registry.register(Registries.BLOCK, name, block);
@@ -86,10 +79,5 @@ public class Reggie {
   // ******************************
   public static <I extends Item> I register(String name, I item) {
     return Registry.register(Registries.ITEM, newID(name), item);
-  }
-
-  // Register Armor Material
-  public static RegistryEntry<ArmorMaterial> register(String name, ArmorMaterial material) {
-    return Registry.registerReference(Registries.ARMOR_MATERIAL, newID(name), material);
   }
 }
