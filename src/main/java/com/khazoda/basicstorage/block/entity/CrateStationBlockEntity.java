@@ -30,7 +30,7 @@ public class CrateStationBlockEntity extends BlockEntity {
   }
 
   private void buildCrateCache() {
-    if (world == null || world.isClient)
+    if (world == null || world.isClient())
       return;
 
     crateRegistry.clear();
@@ -54,7 +54,6 @@ public class CrateStationBlockEntity extends BlockEntity {
         addDirectionsToExplore(toExplore, current);
       }
     }
-//    world.getPlayers().getFirst().sendMessage(Text.literal("Updated cache. New crate number: ".concat(String.valueOf(connectedCrates.size())))); Todo: Uncomment to debug crate connections
     markDirty();
   }
 
@@ -98,11 +97,8 @@ public class CrateStationBlockEntity extends BlockEntity {
     return crateRegistry;
   }
 
-  /**
-   * Consolidate items: Move all items of the same type into the crate with the biggest amount
-   */
   public void consolidateItems() {
-    if (world == null || world.isClient)
+    if (world == null || world.isClient())
       return;
 
     Map<ItemVariant, List<BlockPos>> registry = getCrateRegistry();
@@ -114,7 +110,6 @@ public class CrateStationBlockEntity extends BlockEntity {
       if (cratePositions.size() <= 1)
         continue;
 
-      // Find the crate with the most items
       BlockPos largestCratePos = null;
       long largestAmount = 0;
       
@@ -138,7 +133,6 @@ public class CrateStationBlockEntity extends BlockEntity {
       if (targetCrate == null)
         continue;
 
-      // Move items from all other crates to the largest one
       for (BlockPos pos : cratePositions) {
         if (pos.equals(largestCratePos))
           continue;
