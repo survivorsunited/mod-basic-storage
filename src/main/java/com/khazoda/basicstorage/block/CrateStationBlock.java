@@ -96,7 +96,7 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
         if (!world.isClient()) {
           cdbe.consolidateItems();
           player.sendMessage(Text.translatable("message.basicstorage.station.consolidated").withColor(0xDDFF99), true);
-          world.playSound(null, pos, SoundRegistry.HANDLE_LOADS, SoundCategory.BLOCKS, 1f, 1f);
+          world.playSound(null, pos, SoundRegistry.INSERT_LOADS, SoundCategory.BLOCKS, 1f, 1f);
         }
         return ActionResult.SUCCESS;
       }
@@ -178,8 +178,8 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
     PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
     World world = cdbe.getWorld();
 
-    for (int i = 0; i < player.getInventory().main.size(); i++) {
-      ItemStack stack = player.getInventory().main.get(i);
+    for (int i = 0; i < player.getInventory().size(); i++) {
+      ItemStack stack = player.getInventory().getStack(i);
       if (!stack.isEmpty()) {
         ItemVariant variant = ItemVariant.of(stack);
         List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
