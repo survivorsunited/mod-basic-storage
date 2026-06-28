@@ -1,0 +1,82 @@
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '1.21.11'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew clean build --no-daemon
+
+      - name: Prepare release metadata
+        id: meta
+        shell: bash
+        run: |
+          MOD_VERSION=$(grep '^[[:space:]]*mod_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MC_VERSION=$(grep '^[[:space:]]*minecraft_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*minecraft_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MOD_NAME=$(grep '^[[:space:]]*archives_base_name[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*archives_base_name[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          TAG="v${MOD_VERSION}-${MC_VERSION}"
+          RELEASE_NAME="${MOD_NAME}-${MOD_VERSION}-${MC_VERSION}"
+          SOURCE_JAR=$(find build/libs -maxdepth 1 -type f -name "${MOD_NAME}-${MOD_VERSION}.jar" ! -name '*sources*' ! -name '*dev*' | head -n 1)
+          if [ -z "$SOURCE_JAR" ]; then
+            echo "Could not find expected jar ${MOD_NAME}-${MOD_VERSION}.jar"
+            ls -la build/libs
+            exit 1
+          fi
+          RELEASE_JAR="build/libs/${MOD_NAME}-${MOD_VERSION}-${MC_VERSION}.jar"
+          cp "$SOURCE_JAR" "$RELEASE_JAR"
+          echo "mod_version=$MOD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "mc_version=$MC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_jar=$RELEASE_JAR" >> "$GITHUB_OUTPUT"
+          echo "release_jar_name=$(basename "$RELEASE_JAR")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.release_jar_name }}
+          path: ${{ steps.meta.outputs.release_jar }}
+          retention-days: 30
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_NAME: ${{ steps.meta.outputs.release_name }}
+          RELEASE_JAR: ${{ steps.meta.outputs.release_jar }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$RELEASE_JAR" --clobber
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            gh release create "$TAG" "$RELEASE_JAR" \
+              --title "$RELEASE_NAME" \
+              --notes "Basic Storage ${RELEASE_NAME} build for SurvivorsUnited."
+          fi
