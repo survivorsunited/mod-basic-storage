@@ -12,7 +12,7 @@ public record ConfigSyncPayload(boolean breakWithAxeOnly) implements CustomPaylo
 
   public static final CustomPayload.Id<ConfigSyncPayload> ID = new CustomPayload.Id<>(Identifier.of(BS_NAMESPACE, "config_sync"));
   public static final PacketCodec<RegistryByteBuf, ConfigSyncPayload> CODEC = PacketCodec.tuple(
-      PacketCodecs.BOOL, ConfigSyncPayload::breakWithAxeOnly,
+      PacketCodecs.BOOLEAN, ConfigSyncPayload::breakWithAxeOnly,
       ConfigSyncPayload::new
   );
 
