@@ -1,0 +1,97 @@
+name: release
+
+on:
+  push:
+    branches:
+      - latest-stable
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-12111:
+    name: Build and publish 1.21.11 release asset
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: microsoft
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build 1.21.11 jar
+        run: ./gradlew clean build --no-daemon
+
+      - name: Prepare release asset
+        id: release_asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RAW_VERSION=$(grep '^[[:space:]]*mod_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          MC_VERSION=$(grep '^[[:space:]]*minecraft_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*minecraft_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          BASE_VERSION=${RAW_VERSION%%+*}
+
+          if [ "$MC_VERSION" != "1.21.11" ]; then
+            echo "Expected minecraft_version=1.21.11 but found $MC_VERSION" >&2
+            exit 1
+          fi
+
+          mkdir -p release-assets
+          SOURCE_JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*sources*' ! -name '*dev*' ! -name '*javadoc*' | sort | head -n 1)
+
+          if [ -z "$SOURCE_JAR" ]; then
+            echo "No playable jar found in build/libs" >&2
+            ls -la build/libs || true
+            exit 1
+          fi
+
+          ASSET_NAME="basic-storage-${BASE_VERSION}+${MC_VERSION}.jar"
+          ASSET_PATH="release-assets/${ASSET_NAME}"
+          cp "$SOURCE_JAR" "$ASSET_PATH"
+
+          echo "Release tag: $BASE_VERSION"
+          echo "Release asset: $ASSET_NAME"
+          ls -la release-assets
+
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "mc_version=$MC_VERSION" >> "$GITHUB_OUTPUT"
+          echo "asset_name=$ASSET_NAME" >> "$GITHUB_OUTPUT"
+          echo "asset_path=$ASSET_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release_asset.outputs.asset_name }}
+          path: ${{ steps.release_asset.outputs.asset_path }}
+          retention-days: 30
+
+      - name: Publish GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.release_asset.outputs.base_version }}
+          name: Release ${{ steps.release_asset.outputs.base_version }}
+          commit: ${{ github.sha }}
+          artifacts: ${{ steps.release_asset.outputs.asset_path }}
+          allowUpdates: true
+          replacesArtifacts: true
+          removeArtifacts: false
+          generateReleaseNotes: true
+          body: |
+            Basic Storage ${{ steps.release_asset.outputs.base_version }} for Minecraft ${{ steps.release_asset.outputs.mc_version }}.
+
+            Release asset:
+            `${{ steps.release_asset.outputs.asset_name }}`
