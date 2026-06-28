@@ -31,7 +31,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.loot.context.LootContextParameterSet;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
@@ -50,6 +49,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
+import net.minecraft.world.block.WireOrientation;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -137,7 +137,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       BlockState state = world.getBlockState(pos);
 
       /* Todo: remove block after migration period */
-      if (!world.isClient) {
+      if (!world.isClient()) {
         fixLegacyState(state, world, pos);
         // Refresh the state variable to ensure method uses corrected data
         state = world.getBlockState(pos);
@@ -163,7 +163,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
               ? Text.translatable("message.basicstorage.crate.locked").withColor(0xFFDD99)
               : Text.translatable("message.basicstorage.crate.unlocked").withColor(0xFFDD99);
           player.sendMessage(message, true);
-          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 0.8f, cbe.isLocked() ? 0.9f : 1.1f);
+          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 0.8f, cbe.isLocked() ? 0.9f : 1.1f);
         }
         return ActionResult.SUCCESS;
       }
@@ -190,7 +190,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
         if (inserted == 0) {
           t.abort();
-          return ActionResult.CONSUME_PARTIAL;
+          return ActionResult.CONSUME;
         }
 
         t.commit();
@@ -290,7 +290,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           var newComponent = new CrateSlotComponent(targetItem, (int) extracted);
           heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
           t.commit();
-          world.playSound(null, targetPos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1f);
+          world.playSound(null, targetPos, SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f);
           targetCbe.refresh();
           return ActionResult.SUCCESS;
         }
@@ -312,7 +312,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             heldCrateStack.remove(DataComponentRegistry.CRATE_CONTENTS);
           }
           t.commit();
-          world.playSound(null, targetPos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1f);
+          world.playSound(null, targetPos, SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f);
           targetCbe.refresh();
           return ActionResult.SUCCESS;
         }
@@ -402,16 +402,9 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return super.onBreak(world, pos, state, player);
   }
 
-  @Override
-  protected List<ItemStack> getDroppedStacks(BlockState state, LootContextParameterSet.Builder
-          builder) {
-    return super.getDroppedStacks(state, builder);
-  }
-
   /**
    * Applies custom tooltip showing crate contents
    **/
-  @Override
   public void appendTooltip(ItemStack stack, Item.TooltipContext
           context, List<Text> tooltip, TooltipType options) {
     CrateSlotComponent contentsComponent = stack.get(DataComponentRegistry.CRATE_CONTENTS);
@@ -474,27 +467,23 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   @Override
-  protected void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState,
-                                 boolean moved) {
-    if (state.isOf(newState.getBlock())) {
-      return;
-    }
+  protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
     BlockEntity blockEntity = world.getBlockEntity(pos);
     if (blockEntity instanceof CrateBlockEntity) {
       world.updateComparators(pos, state.getBlock());
       notifyNearbyStations(world, pos);
       world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     }
-    super.onStateReplaced(state, world, pos, newState, moved);
+    super.onStateReplaced(state, world, pos, moved);
   }
 
   /* Todo: remove this method after migration period */
   @Override
-  public void neighborUpdate(BlockState state, World world, BlockPos pos, Block sourceBlock, BlockPos sourcePos, boolean notify) {
-    if (!world.isClient) {
+  protected void neighborUpdate(BlockState state, World world, BlockPos pos, Block sourceBlock, WireOrientation wireOrientation, boolean notify) {
+    if (!world.isClient()) {
       fixLegacyState(state, world, pos);
     }
-    super.neighborUpdate(state, world, pos, sourceBlock, sourcePos, notify);
+    super.neighborUpdate(state, world, pos, sourceBlock, wireOrientation, notify);
   }
 
   /* Todo: remove this method after migration period */
@@ -531,7 +520,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return state.with(ORIENTATION, Orientation.byDirections(newFacing, newRotation));
   }
 
-  @Override
   public boolean hasComparatorOutput(BlockState state) {
     return true;
   }
@@ -540,7 +528,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    * Comparator Logic
    * 1-16 items = signal strength, loops to 1 billion
    */
-  @Override
   public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
     BlockEntity be = world.getBlockEntity(pos);
     if (be instanceof CrateBlockEntity cbe) {
