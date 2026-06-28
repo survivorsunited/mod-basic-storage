@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          RAW_VERSION=$(grep '^[[:space:]]*mod_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*mod_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
+          RAW_VERSION=$(cat release-version.txt)
           MC_VERSION=$(grep '^[[:space:]]*minecraft_version[[:space:]]*=' gradle.properties | sed 's/^[[:space:]]*minecraft_version[[:space:]]*=[[:space:]]*//' | tr -d '[:space:]')
           BASE_VERSION=${RAW_VERSION%%+*}
 
