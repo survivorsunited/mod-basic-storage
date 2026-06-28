@@ -51,7 +51,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
 
     BlockState state = be.getCachedState();
     Orientation orientation = state.get(CrateBlock.ORIENTATION);
-    Direction facing = orientation.getFacing();
+    Direction facing = orientation.getFacing().getOpposite();
     BlockPos pos = be.getPos();
     World world = be.getWorld();
 
@@ -171,6 +171,8 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       }
     }
+
+    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
     matrices.translate(0, 0, 0.51);
   }
 }
