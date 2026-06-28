@@ -9,10 +9,13 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.component.ComponentMap;
+import net.minecraft.component.ComponentsAccess;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 
 public class CrateBlockEntity extends BlockEntity {
@@ -31,7 +34,7 @@ public class CrateBlockEntity extends BlockEntity {
    */
   public void refresh() {
     if (world instanceof ServerWorld) {
-      world.getWorldChunk(pos).setNeedsSaving(true);
+      markDirty();
       var state = getCachedState();
       world.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
       world.updateComparators(pos, state.getBlock());
@@ -39,25 +42,20 @@ public class CrateBlockEntity extends BlockEntity {
   }
 
   /**
-   * NBT Operations
+   * Persist block entity data in Minecraft 1.21.11's data view format.
    **/
   @Override
-  protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    var storageNbt = new NbtCompound();
-    storage.writeNbt(storageNbt, registryLookup);
-    nbt.put("crateStack", storageNbt);
-    nbt.putBoolean("locked", locked);
+  protected void writeData(WriteView view) {
+    super.writeData(view);
+    view.put("crateStack", CrateSlotComponent.CODEC, storage.toComponent());
+    view.putBoolean("locked", locked);
   }
 
   @Override
-  protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    super.readNbt(nbt, registryLookup);
-    if (nbt.contains("crateStack", 10)) {
-      storage.readNbt(nbt.getCompound("crateStack"), registryLookup);
-    }
-    if (nbt.contains("locked", 1)) {
-      locked = nbt.getBoolean("locked");
-    }
+  protected void readData(ReadView view) {
+    super.readData(view);
+    view.read("crateStack", CrateSlotComponent.CODEC).ifPresent(storage::readComponent);
+    locked = view.getBoolean("locked", false);
   }
 
   /**
@@ -65,9 +63,7 @@ public class CrateBlockEntity extends BlockEntity {
    */
   @Override
   public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-    var nbt = new NbtCompound();
-    writeNbt(nbt, registryLookup);
-    return nbt;
+    return createNbt(registryLookup);
   }
 
   @Override
@@ -90,7 +86,7 @@ public class CrateBlockEntity extends BlockEntity {
   }
 
   @Override
-  protected void readComponents(BlockEntity.ComponentsAccess components) {
+  protected void readComponents(ComponentsAccess components) {
     CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS,
         CrateSlotComponent.DEFAULT);
     if (contents == null || contents.count() == 0)
