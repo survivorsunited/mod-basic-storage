@@ -15,6 +15,10 @@ public class SoundRegistry {
   public static final SoundEvent INSERT_LOADS = register("insert_loads");
   public static final SoundEvent NO_MATCH = register("no_match");
 
+  public static final SoundEvent HANDLE_ONE = INSERT_ONE;
+  public static final SoundEvent HANDLE_MANY = INSERT_MANY;
+  public static final SoundEvent HANDLE_LOADS = INSERT_LOADS;
+
   public static void init() {
     BasicStorage.loadedRegistries += 1;
   }
