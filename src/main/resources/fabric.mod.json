@@ -27,11 +27,7 @@
     ]
   },
   "mixins": [
-    "basic-storage.mixins.json",
-    {
-      "config": "basic-storage.client.mixins.json",
-      "environment": "client"
-    }
+    "basic-storage.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
