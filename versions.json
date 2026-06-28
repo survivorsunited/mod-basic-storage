@@ -46,6 +46,13 @@
     "loom_version": "1.12.0-alpha.25",
     "gradle_version": "8.14",
     "java_version": 21
+  },
+  "1.21.11": {
+    "yarn_mappings": "1.21.11+build.4",
+    "loader_version": "0.19.3",
+    "fabric_version": "0.141.4+1.21.11",
+    "loom_version": "1.11-SNAPSHOT",
+    "gradle_version": "8.14",
+    "java_version": 21
   }
 }
-
