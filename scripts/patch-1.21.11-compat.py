@@ -28,6 +28,12 @@ def patch_crate_block(text):
         text,
         flags=re.S,
     )
+    text = re.sub(
+        r"\n  @Override\n  protected List<ItemStack> getDroppedStacks\([^}]+\}\n",
+        "\n",
+        text,
+        flags=re.S,
+    )
 
     text = re.sub(
         r"\n  @Override\n  protected void onStateReplaced\(BlockState state, World world, BlockPos pos, BlockState newState,\s+boolean moved\) \{\n    if \(state\.isOf\(newState\.getBlock\(\)\)\) \{\n      return;\n    \}\n    BlockEntity blockEntity = world\.getBlockEntity\(pos\);\n    if \(blockEntity instanceof CrateBlockEntity\) \{\n      world\.updateComparators\(pos, state\.getBlock\(\)\);\n      notifyNearbyStations\(world, pos\);\n      world\.emitGameEvent\(null, GameEvent\.BLOCK_DESTROY, pos\);\n    \}\n    super\.onStateReplaced\(state, world, pos, newState, moved\);\n  \}\n",
@@ -47,6 +53,7 @@ def patch_crate_block(text):
 
     text = text.replace("\n  @Override\n  public boolean hasComparatorOutput", "\n  public boolean hasComparatorOutput")
     text = text.replace("\n  @Override\n  public int getComparatorOutput", "\n  public int getComparatorOutput")
+    text = text.replace("\n  @Override\n  public void appendTooltip", "\n  public void appendTooltip")
     return text
 
 
@@ -65,7 +72,7 @@ def patch_block_entity(text):
     text = text.replace("      world.getWorldChunk(pos).setNeedsSaving(true);\n", "      markDirty();\n")
 
     text = re.sub(
-        r"\n  /\*\*\n   \* NBT Operations\n   \*\*/\n  @Override\n  protected void writeNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    var storageNbt = new NbtCompound\(\);\n    storage\.writeNbt\(storageNbt, registryLookup\);\n    nbt\.put\(\"crateStack\", storageNbt\);\n    nbt\.putBoolean\(\"locked\", locked\);\n  \}\n\n  @Override\n  protected void readNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    super\.readNbt\(nbt, registryLookup\);\n    if \(nbt\.contains\(\"crateStack\", 10\)\) \{\n      storage\.readNbt\(nbt\.getCompound\(\"crateStack\"\), registryLookup\);\n    \}\n    if \(nbt\.contains\(\"locked\", 1\)\) \{\n      locked = nbt\.getBoolean\(\"locked\"\);\n    \}\n  \}\n",
+        r"\n  /\*\*\n   \* NBT Operations\n   \*\*/\n  @Override\n  protected void writeNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    var storageNbt = new NbtCompound\(\);\n    storage\.writeNbt\(storageNbt, registryLookup\);\n    nbt\.put\(\"crateStack\", storageNbt\);\n    nbt\.putBoolean\(\"locked\", locked\);\n  \}\n\n  @Override\n  protected void readNbt\(NbtCompound nbt, RegistryWrapper\.WrapperLookup registryLookup\) \{\n    super\.readNbt\(nbt, registryLookup\);\n    if \(nbt\.contains\(\"crateStack\", 10\)\) \{\n      storage\.readNbt\(nbt\.getCompound\(\"crateStack\"\), registryLookup\);\n    \}\n    if \(nbt\.contains\(\"locked\", 1\)\) \{\n      locked = nbt\.getBoolean\(\"locked\");\n    \}\n  \}\n",
         "\n",
         text,
         flags=re.S,
