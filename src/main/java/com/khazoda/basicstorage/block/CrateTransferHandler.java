@@ -6,6 +6,7 @@ import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
@@ -23,6 +24,44 @@ import net.minecraft.world.event.GameEvent;
 
 public class CrateTransferHandler {
   public static void init() {
+    registerLeftClickGrab();
+    registerRightClickDeposit();
+  }
+
+  private static void registerLeftClickGrab() {
+    AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
+      BlockState state = world.getBlockState(pos);
+      if (!state.isOf(BlockRegistry.CRATE_BLOCK)) {
+        return ActionResult.PASS;
+      }
+      if (!player.canModifyBlocks() || player.isSpectator()) {
+        return ActionResult.PASS;
+      }
+
+      ItemStack heldCrateStack = player.getStackInHand(hand);
+      if (!heldCrateStack.isOf(BlockRegistry.CRATE_BLOCK.asItem()) || !isHeldCrateEmpty(heldCrateStack)) {
+        return ActionResult.PASS;
+      }
+
+      Direction facing = resolveFront(state);
+      if (facing != direction) {
+        return ActionResult.PASS;
+      }
+
+      if (world.isClient()) {
+        return ActionResult.SUCCESS;
+      }
+
+      BlockEntity be = world.getBlockEntity(pos);
+      if (!(be instanceof CrateBlockEntity targetCbe)) {
+        return ActionResult.PASS;
+      }
+
+      return extractTargetIntoHeldCrate(player, world, pos, state, targetCbe, heldCrateStack);
+    });
+  }
+
+  private static void registerRightClickDeposit() {
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, net.minecraft.util.Hand hand, net.minecraft.util.hit.BlockHitResult hit) -> {
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
@@ -67,6 +106,44 @@ public class CrateTransferHandler {
     return orientation.getFacing();
   }
 
+  private static boolean isHeldCrateEmpty(ItemStack heldCrateStack) {
+    CrateSlotComponent contents = heldCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+    return contents == null || contents.count() <= 0 || contents.item().isBlank();
+  }
+
+  private static ActionResult extractTargetIntoHeldCrate(PlayerEntity player, World world, BlockPos targetPos, BlockState state,
+      CrateBlockEntity targetCbe, ItemStack heldCrateStack) {
+    CrateSlot targetSlot = targetCbe.storage;
+    if (targetSlot.isBlank()) {
+      return ActionResult.PASS;
+    }
+
+    ItemVariant targetItem = targetSlot.getResource();
+    long targetCount = targetSlot.getAmount();
+
+    try (var transaction = Transaction.openOuter()) {
+      long extracted = targetSlot.extract(targetItem, targetCount, transaction);
+      if (extracted <= 0) {
+        transaction.abort();
+        return ActionResult.PASS;
+      }
+
+      CrateSlotComponent newComponent = new CrateSlotComponent(targetItem, (int) extracted);
+      if (heldCrateStack.getCount() == 1) {
+        heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
+      } else {
+        heldCrateStack.decrement(1);
+        ItemStack filledCrate = new ItemStack(BlockRegistry.CRATE_BLOCK.asItem());
+        filledCrate.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
+        player.getInventory().offerOrDrop(filledCrate);
+      }
+
+      transaction.commit();
+      finishTransfer(world, targetPos, state, targetCbe);
+      return ActionResult.SUCCESS;
+    }
+  }
+
   private static ActionResult transferCrateContents(PlayerEntity player, World world, BlockPos targetPos, BlockState state,
       CrateBlockEntity targetCbe, ItemStack heldCrateStack) {
     CrateSlotComponent heldCrateComponent = heldCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
@@ -77,34 +154,7 @@ public class CrateTransferHandler {
     boolean heldCrateIsEmpty = heldCrateComponent == null || heldCount <= 0 || heldItem == null || heldItem.isBlank();
 
     if (heldCrateIsEmpty) {
-      if (targetSlot.isBlank()) {
-        return ActionResult.PASS;
-      }
-
-      ItemVariant targetItem = targetSlot.getResource();
-      long targetCount = targetSlot.getAmount();
-
-      try (var transaction = Transaction.openOuter()) {
-        long extracted = targetSlot.extract(targetItem, targetCount, transaction);
-        if (extracted <= 0) {
-          transaction.abort();
-          return ActionResult.PASS;
-        }
-
-        CrateSlotComponent newComponent = new CrateSlotComponent(targetItem, (int) extracted);
-        if (heldCrateStack.getCount() == 1) {
-          heldCrateStack.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
-        } else {
-          heldCrateStack.decrement(1);
-          ItemStack filledCrate = new ItemStack(BlockRegistry.CRATE_BLOCK.asItem());
-          filledCrate.set(DataComponentRegistry.CRATE_CONTENTS, newComponent);
-          player.getInventory().offerOrDrop(filledCrate);
-        }
-
-        transaction.commit();
-        finishTransfer(world, targetPos, state, targetCbe);
-        return ActionResult.SUCCESS;
-      }
+      return extractTargetIntoHeldCrate(player, world, targetPos, state, targetCbe, heldCrateStack);
     }
 
     if (targetSlot.isBlank() || targetSlot.getResource().equals(heldItem)) {
