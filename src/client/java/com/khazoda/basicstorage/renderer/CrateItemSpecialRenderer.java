@@ -32,7 +32,7 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
   public void render(CrateSlotComponent contents, ItemDisplayContext displayContext, MatrixStack matrices,
       OrderedRenderCommandQueue queue, int light, int overlay, boolean glint, int seed) {
     matrices.push();
-    rotateFrontFaceUp(displayContext, matrices);
+    rotateForHeldVisibility(displayContext, matrices);
 
     queue.submitBlock(matrices, BlockRegistry.CRATE_BLOCK.getDefaultState(), light, overlay, 0);
 
@@ -47,17 +47,18 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
     matrices.pop();
   }
 
-  private void rotateFrontFaceUp(ItemDisplayContext displayContext, MatrixStack matrices) {
-    matrices.translate(0.5, 0.5, 0.5);
-    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
-
+  private void rotateForHeldVisibility(ItemDisplayContext displayContext, MatrixStack matrices) {
     if (displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND) {
+      matrices.translate(0.5, 0.5, 0.5);
+      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-20));
+      matrices.translate(-0.5, -0.5, -0.5);
     } else if (displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND) {
+      matrices.translate(0.5, 0.5, 0.5);
+      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-15));
+      matrices.translate(-0.5, -0.5, -0.5);
     }
-
-    matrices.translate(-0.5, -0.5, -0.5);
   }
 
   private void alignOverlayToFrontFace(MatrixStack matrices) {
