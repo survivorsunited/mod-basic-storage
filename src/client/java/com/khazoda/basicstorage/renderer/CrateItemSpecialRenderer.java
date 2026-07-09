@@ -58,11 +58,6 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-20));
       matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-10));
       matrices.translate(-0.5, -0.5, -0.5);
-    } else if (displayContext == ItemDisplayContext.GUI) {
-      matrices.translate(0.5, 0.5, 0.5);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-25));
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-15));
-      matrices.translate(-0.5, -0.5, -0.5);
     }
   }
 
