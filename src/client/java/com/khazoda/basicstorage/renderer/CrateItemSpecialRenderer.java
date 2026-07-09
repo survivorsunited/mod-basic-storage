@@ -38,7 +38,7 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
 
     if (contents != null && contents.count() > 0 && !contents.item().isBlank()) {
       matrices.push();
-      alignOverlayToFrontFace(matrices);
+      alignOverlayToTopFace(matrices);
       renderStoredItem(contents, displayContext, matrices, queue, light, overlay, seed);
       renderStoredCount(contents, matrices, queue, light);
       matrices.pop();
@@ -50,12 +50,12 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
   private void rotateForHeldVisibility(ItemDisplayContext displayContext, MatrixStack matrices) {
     if (displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND) {
       matrices.translate(0.5, 0.5, 0.5);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-35));
+      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-25));
       matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-12));
       matrices.translate(-0.5, -0.5, -0.5);
     } else if (displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND) {
       matrices.translate(0.5, 0.5, 0.5);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-25));
+      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-20));
       matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-10));
       matrices.translate(-0.5, -0.5, -0.5);
     } else if (displayContext == ItemDisplayContext.GUI) {
@@ -66,9 +66,10 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
     }
   }
 
-  private void alignOverlayToFrontFace(MatrixStack matrices) {
-    matrices.translate(0.5, 0.5, -0.0125);
-    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
+  private void alignOverlayToTopFace(MatrixStack matrices) {
+    matrices.translate(0.5, 1.0125, 0.5);
+    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-90));
+    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180));
   }
 
   private void renderStoredItem(CrateSlotComponent contents, ItemDisplayContext displayContext, MatrixStack matrices,
