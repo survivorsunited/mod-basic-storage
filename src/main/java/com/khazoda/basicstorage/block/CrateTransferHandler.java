@@ -83,7 +83,7 @@ public class CrateTransferHandler {
       }
 
       if (isHeldCrateEmpty(heldCrateStack)) {
-        return ActionResult.CONSUME;
+        return player.isSneaking() ? ActionResult.PASS : ActionResult.CONSUME;
       }
 
       if (world.isClient()) {
