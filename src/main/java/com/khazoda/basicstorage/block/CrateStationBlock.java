@@ -4,7 +4,9 @@ import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
+import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
@@ -34,18 +36,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Right Click
- * > holding stack - Search for nearest crate containing stack item type and
- * deposit stack into it
- * > no valid crate found? - notify user
- * > holding nothing - Display number of connected crates
- * Shift Right Click - Add all items from inventory to crates that match the
- * items
- * > no valid crate found? - notify user
- * Left Click - Nothing
- * Shift Left Click - Nothing
- */
 public class CrateStationBlock extends BlockWithEntity implements BlockEntityProvider {
   public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.createCodec(CrateStationBlock::new);
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(3.5f)
@@ -59,10 +49,6 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
     this(defaultSettings);
   }
 
-  /**
-   * Event hook instead of onUse() method in order to capture interactions while
-   * sneaking
-   */
   public static void initOnUseMethod() {
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
       if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_STATION_BLOCK))
@@ -81,17 +67,14 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
         return ActionResult.PASS;
 
       CrateStationBlockEntity cdbe = (CrateStationBlockEntity) be;
-      ItemStack playerStack = player.getMainHandStack();
+      ItemStack playerStack = player.getStackInHand(hand);
       int connectedCrateCount = cdbe.getConnectedCrates().size();
       int inserted = 0;
 
-      // Check if player is trying to place a crate (shift-clicking with crate item)
       if (player.isSneaking() && playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
-        // Allow normal block placement instead of inserting into network
         return ActionResult.PASS;
       }
 
-      // Consolidation: Sneak + empty hand + right-click on station
       if (playerStack.isEmpty() && player.isSneaking()) {
         if (!world.isClient()) {
           cdbe.consolidateItems();
@@ -112,7 +95,11 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
                 true);
           return ActionResult.PASS;
         }
-        inserted = depositStack(player.getStackInHand(hand), cdbe);
+        if (playerStack.isOf(BlockRegistry.CRATE_BLOCK.asItem())) {
+          inserted = depositCrateContents(playerStack, cdbe);
+        } else {
+          inserted = depositStack(playerStack, cdbe);
+        }
       }
 
       if (!world.isClient()) {
@@ -154,10 +141,9 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
 
     for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
       if (world == null)
-        return 0; // todo: if something goes wrong, remove this and see if things work lol
+        return 0;
       BlockEntity be = world.getBlockEntity(cratePos);
       if (!(be instanceof CrateBlockEntity crate)) {
-        // compatibleCrates.remove(cratePos); //TODO: Maybe Remove?
         continue;
       }
 
@@ -170,6 +156,51 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
         }
       }
     }
+    return inserted;
+  }
+
+  private static int depositCrateContents(ItemStack crateStack, CrateStationBlockEntity cdbe) {
+    CrateSlotComponent contents = crateStack.get(DataComponentRegistry.CRATE_CONTENTS);
+    if (contents == null || contents.count() <= 0 || contents.item().isBlank()) {
+      return 0;
+    }
+
+    ItemVariant variant = contents.item();
+    int remaining = contents.count();
+    int inserted = 0;
+    List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
+    if (compatibleCrates == null) {
+      return 0;
+    }
+    World world = cdbe.getWorld();
+
+    for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
+      if (world == null || remaining <= 0) {
+        break;
+      }
+      BlockEntity be = world.getBlockEntity(cratePos);
+      if (!(be instanceof CrateBlockEntity crate)) {
+        continue;
+      }
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        int moved = (int) crate.storage.insert(variant, remaining, transaction);
+        if (moved > 0) {
+          inserted += moved;
+          remaining -= moved;
+          transaction.commit();
+        }
+      }
+    }
+
+    if (inserted > 0) {
+      if (remaining > 0) {
+        crateStack.set(DataComponentRegistry.CRATE_CONTENTS, new CrateSlotComponent(variant, remaining));
+      } else {
+        crateStack.remove(DataComponentRegistry.CRATE_CONTENTS);
+      }
+    }
+
     return inserted;
   }
 
