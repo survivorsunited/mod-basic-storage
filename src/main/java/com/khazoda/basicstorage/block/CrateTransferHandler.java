@@ -82,6 +82,10 @@ public class CrateTransferHandler {
         return ActionResult.PASS;
       }
 
+      if (isHeldCrateEmpty(heldCrateStack)) {
+        return ActionResult.CONSUME;
+      }
+
       if (world.isClient()) {
         return ActionResult.SUCCESS;
       }
@@ -91,7 +95,7 @@ public class CrateTransferHandler {
         return ActionResult.PASS;
       }
 
-      return transferCrateContents(player, world, pos, state, targetCbe, heldCrateStack);
+      return transferCrateContents(world, pos, state, targetCbe, heldCrateStack);
     });
   }
 
@@ -144,17 +148,15 @@ public class CrateTransferHandler {
     }
   }
 
-  private static ActionResult transferCrateContents(PlayerEntity player, World world, BlockPos targetPos, BlockState state,
+  private static ActionResult transferCrateContents(World world, BlockPos targetPos, BlockState state,
       CrateBlockEntity targetCbe, ItemStack heldCrateStack) {
     CrateSlotComponent heldCrateComponent = heldCrateStack.get(DataComponentRegistry.CRATE_CONTENTS);
     ItemVariant heldItem = heldCrateComponent == null ? null : heldCrateComponent.item();
     int heldCount = heldCrateComponent == null ? 0 : heldCrateComponent.count();
     CrateSlot targetSlot = targetCbe.storage;
 
-    boolean heldCrateIsEmpty = heldCrateComponent == null || heldCount <= 0 || heldItem == null || heldItem.isBlank();
-
-    if (heldCrateIsEmpty) {
-      return extractTargetIntoHeldCrate(player, world, targetPos, state, targetCbe, heldCrateStack);
+    if (heldCrateComponent == null || heldCount <= 0 || heldItem == null || heldItem.isBlank()) {
+      return ActionResult.CONSUME;
     }
 
     if (targetSlot.isBlank() || targetSlot.getResource().equals(heldItem)) {
