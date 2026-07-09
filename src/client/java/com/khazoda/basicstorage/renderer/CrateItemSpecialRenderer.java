@@ -32,13 +32,13 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
   public void render(CrateSlotComponent contents, ItemDisplayContext displayContext, MatrixStack matrices,
       OrderedRenderCommandQueue queue, int light, int overlay, boolean glint, int seed) {
     matrices.push();
-    rotateForHeldVisibility(displayContext, matrices);
+    rotateFrontFaceUp(displayContext, matrices);
 
     queue.submitBlock(matrices, BlockRegistry.CRATE_BLOCK.getDefaultState(), light, overlay, 0);
 
     if (contents != null && contents.count() > 0 && !contents.item().isBlank()) {
       matrices.push();
-      alignOverlayToTopFace(matrices);
+      alignOverlayToFrontFace(matrices);
       renderStoredItem(contents, displayContext, matrices, queue, light, overlay, seed);
       renderStoredCount(contents, matrices, queue, light);
       matrices.pop();
@@ -47,24 +47,22 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
     matrices.pop();
   }
 
-  private void rotateForHeldVisibility(ItemDisplayContext displayContext, MatrixStack matrices) {
+  private void rotateFrontFaceUp(ItemDisplayContext displayContext, MatrixStack matrices) {
+    matrices.translate(0.5, 0.5, 0.5);
+    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
+
     if (displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND) {
-      matrices.translate(0.5, 0.5, 0.5);
-      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-25));
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-12));
-      matrices.translate(-0.5, -0.5, -0.5);
-    } else if (displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND) {
-      matrices.translate(0.5, 0.5, 0.5);
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-20));
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-10));
-      matrices.translate(-0.5, -0.5, -0.5);
+    } else if (displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND) {
+      matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-15));
     }
+
+    matrices.translate(-0.5, -0.5, -0.5);
   }
 
-  private void alignOverlayToTopFace(MatrixStack matrices) {
-    matrices.translate(0.5, 1.0125, 0.5);
-    matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-90));
-    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180));
+  private void alignOverlayToFrontFace(MatrixStack matrices) {
+    matrices.translate(0.5, 0.5, -0.0125);
+    matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
   }
 
   private void renderStoredItem(CrateSlotComponent contents, ItemDisplayContext displayContext, MatrixStack matrices,
