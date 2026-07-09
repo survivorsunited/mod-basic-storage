@@ -50,10 +50,12 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<CrateSlotC
   private void rotateForHeldVisibility(ItemDisplayContext displayContext, MatrixStack matrices) {
     if (displayContext == ItemDisplayContext.FIRST_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.FIRST_PERSON_LEFT_HAND) {
       matrices.translate(0.5, 0.5, 0.5);
+      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-20));
       matrices.translate(-0.5, -0.5, -0.5);
     } else if (displayContext == ItemDisplayContext.THIRD_PERSON_RIGHT_HAND || displayContext == ItemDisplayContext.THIRD_PERSON_LEFT_HAND) {
       matrices.translate(0.5, 0.5, 0.5);
+      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
       matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-15));
       matrices.translate(-0.5, -0.5, -0.5);
     }
